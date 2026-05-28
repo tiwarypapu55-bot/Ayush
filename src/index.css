@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+.bg-image1-teal {
+  background: radial-gradient(circle at center, rgb(113, 203, 215) 0%, rgb(72, 140, 151) 100%);
+  background-attachment: fixed;
+}
+
+.bg-image3-lavender {
+  background-color: rgb(210, 195, 245);
+}
+
+.bg-image2-coral {
+  background-color: rgb(231, 121, 104);
+}
