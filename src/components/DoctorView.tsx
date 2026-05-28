@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Stethoscope, FileJson, Heart, CheckCircle2, User, Sparkles, Plus, Trash2, Code, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Stethoscope, FileJson, Heart, CheckCircle2, User, Sparkles, Plus, Trash2, Code, ShieldCheck, AlertTriangle, Search, Printer, Activity, Eye, Edit, ClipboardList, X } from "lucide-react";
 import { Patient, Encounter, DiagnosisCode, Medication } from "../types";
 
 interface DoctorViewProps {
@@ -62,6 +62,9 @@ export default function DoctorView({ patients, encounters, onAddEncounter, hprVe
   const [fhirBundleJson, setFhirBundleJson] = useState<any>(null);
   const [isFHIRSyncing, setIsFHIRSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState<"dashboard" | "encounter" | "clinical-history">("dashboard");
+  const [opdSearchQuery, setOpdSearchQuery] = useState("");
+  const [opdFilterMyDeptOnly, setOpdFilterMyDeptOnly] = useState(false);
+  const [printEncounter, setPrintEncounter] = useState<Encounter | null>(null);
 
   const addDiagnosisCode = (code: DiagnosisCode) => {
     if (!diagnoses.some(d => d.code === code.code)) {
@@ -152,6 +155,41 @@ export default function DoctorView({ patients, encounters, onAddEncounter, hprVe
     alert(`Encounter ${newEncounter.id} safely stored in Electronic Health Records!`);
   };
 
+  const handleLoadIntakeToForm = (enc: Encounter) => {
+    setSelectedPatientId(enc.patientId);
+    setComplaints(enc.chiefComplaints);
+    setAllergies(enc.allergies || "NKA (No Known Allergies)");
+    if (enc.vitals) {
+      setBp(enc.vitals.bp || "120/80");
+      setPulse(enc.vitals.pulse || 72);
+      setTemp(enc.vitals.temp || 98.6);
+      setSpo2(enc.vitals.spo2 || 99);
+      setRespRate(enc.vitals.respRate || 16);
+    }
+    if (enc.soapNotes) {
+      setSubNotes(enc.soapNotes.subjective || "");
+      setObjNotes(enc.soapNotes.objective || "");
+      setAssNotes(enc.soapNotes.assessment || "");
+      setPlanNotes(enc.soapNotes.plan || "");
+    }
+    setDiagnoses(enc.diagnoses || []);
+    setPrescriptions(enc.prescriptions || []);
+    if (enc.labOrders) {
+      setLabOrders(
+        enc.labOrders.map(lo => ({
+          testCode: lo.testCode,
+          testName: lo.testName,
+          category: lo.category as any,
+        }))
+      );
+    }
+    // Scroll smoothly to form
+    const elem = document.getElementById("emr-consultation-form");
+    if (elem) {
+      elem.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   const convertToABDMFHIR = async (encounterObj: Encounter | null) => {
     if (!encounterObj) return;
     setIsFHIRSyncing(true);
@@ -172,6 +210,22 @@ export default function DoctorView({ patients, encounters, onAddEncounter, hprVe
       setIsFHIRSyncing(false);
     }
   };
+
+  const filteredEncounters = encounters.filter(enc => {
+    if (opdFilterMyDeptOnly && enc.doctorId !== selectedDoctor.id) {
+      return false;
+    }
+    if (!opdSearchQuery.trim()) return true;
+    
+    const query = opdSearchQuery.toLowerCase();
+    const matchesPatient = enc.patientName.toLowerCase().includes(query) || enc.patientId.toLowerCase().includes(query);
+    const matchesComplaint = enc.chiefComplaints.toLowerCase().includes(query);
+    const matchesDiagnosis = enc.diagnoses.some(d => d.display.toLowerCase().includes(query) || d.code.toLowerCase().includes(query));
+    const matchesId = enc.id.toLowerCase().includes(query);
+    const matchesDoctor = enc.doctorName.toLowerCase().includes(query);
+    
+    return matchesPatient || matchesComplaint || matchesDiagnosis || matchesId || matchesDoctor;
+  });
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6" id="doctor-emr-panel">
@@ -358,7 +412,8 @@ export default function DoctorView({ patients, encounters, onAddEncounter, hprVe
         )}
 
         {activeTab === "encounter" ? (
-          <form onSubmit={handleEncounterCommit} className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-6" id="emr-consultation-form">
+          <div className="space-y-6">
+            <form onSubmit={handleEncounterCommit} className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-6" id="emr-consultation-form">
             <h4 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-2">New OPD Consultation Intake Sheet</h4>
 
             {/* Patient Target Selection */}
@@ -638,6 +693,245 @@ export default function DoctorView({ patients, encounters, onAddEncounter, hprVe
               </button>
             </div>
           </form>
+
+          {/* REGISTERED OPD CONSULTATION INTAKE SHEETS REGISTER */}
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4" id="opd-intake-sheets-register">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-3">
+              <div>
+                <h4 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
+                  <ClipboardList className="h-5 w-5 text-indigo-600" /> Registered OPD Consultation Intake Sheets
+                </h4>
+                <p className="text-xs text-slate-500 font-medium">Live outpatient data grid with clinical vitals triage highlights & ABDM integration triggers.</p>
+              </div>
+              
+              {/* Actions / Filters */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Search bar */}
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search patient, ID, or diagnosis..."
+                    value={opdSearchQuery}
+                    onChange={(e) => setOpdSearchQuery(e.target.value)}
+                    className="text-xs bg-slate-50 border border-slate-250 rounded-lg pl-8 pr-3 py-1.5 w-56 outline-hidden font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-indigo-400 transition"
+                  />
+                  {opdSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setOpdSearchQuery("")}
+                      className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600 font-extrabold"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                
+                {/* Filter by Attending */}
+                <button
+                  type="button"
+                  onClick={() => setOpdFilterMyDeptOnly(!opdFilterMyDeptOnly)}
+                  className={`text-[11px] py-1.5 px-3 rounded-lg border font-bold transition cursor-pointer flex items-center gap-1 ${
+                    opdFilterMyDeptOnly
+                      ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700"
+                      : "bg-slate-50 text-slate-750 border-slate-250 hover:bg-slate-100 hover:text-slate-900"
+                  }`}
+                >
+                  <Activity className="h-3.5 w-3.5" /> {opdFilterMyDeptOnly ? "My Dept Only Log" : "Facility-Wide Log"}
+                </button>
+              </div>
+            </div>
+
+            {/* Clinic Stats Bar */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-50/50 p-3 rounded-xl border border-slate-150 text-left">
+              <div className="bg-white p-2.5 rounded-lg border border-slate-150 shadow-2xs">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Total Logged Intakes</span>
+                <p className="text-lg font-extrabold text-slate-800 mt-0.5">{filteredEncounters.length}</p>
+              </div>
+              <div className="bg-white p-2.5 rounded-lg border border-slate-150 shadow-2xs">
+                <span className="text-[9px] font-bold text-slate-450 uppercase tracking-widest block">Active Attending Match</span>
+                <p className="text-lg font-extrabold text-indigo-700 mt-0.5">
+                  {filteredEncounters.filter(e => e.doctorId === selectedDoctor.id).length}
+                </p>
+              </div>
+              <div className="bg-white p-2.5 rounded-lg border border-slate-150 shadow-2xs">
+                <span className="text-[9px] font-bold text-rose-650 uppercase tracking-widest block">Alert Vitals Triage</span>
+                <p className="text-lg font-extrabold text-rose-700 mt-0.5">
+                  {filteredEncounters.filter(e => {
+                    const pulse = e.vitals?.pulse || 72;
+                    const temp = e.vitals?.temp || 98.6;
+                    const spo2 = e.vitals?.spo2 || 99;
+                    return pulse > 100 || temp > 100 || spo2 < 95;
+                  }).length}
+                </p>
+              </div>
+              <div className="bg-white p-2.5 rounded-lg border border-slate-150 shadow-2xs col-span-1">
+                <span className="text-[9px] font-bold text-emerald-700 uppercase tracking-widest block">ABHA-Linked Patients</span>
+                <p className="text-lg font-extrabold text-emerald-800 mt-0.5">
+                  {filteredEncounters.filter(e => {
+                    const mat = patients.find(p => p.id === e.patientId);
+                    return mat && mat.abhaId;
+                  }).length}
+                </p>
+              </div>
+            </div>
+
+            {/* Actual Data Table Grid Container */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white max-w-full">
+              <div className="overflow-x-auto scrollbar-none">
+                <table className="w-full text-left text-xs text-slate-750">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="p-3">Reference Token</th>
+                      <th className="p-3">Outpatient Demographics</th>
+                      <th className="p-3">Logged Consultation Vitals</th>
+                      <th className="p-3">Chief Complaint Summary</th>
+                      <th className="p-3">Diagnoses Code Tags</th>
+                      <th className="p-3 text-right">Interoperability actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-150">
+                    {filteredEncounters.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-8 text-slate-450 text-xs font-semibold">
+                          No registered OPD consultation intake sheets match the search query.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredEncounters.map((enc) => {
+                        const matchedPatient = patients.find(p => p.id === enc.patientId);
+                        const abhaIdStr = matchedPatient?.abhaId;
+                        
+                        // Vitals alert thresholds
+                        const isSpo2Alert = enc.vitals && enc.vitals.spo2 < 95;
+                        const isTempAlert = enc.vitals && enc.vitals.temp > 100.0;
+                        const isPulseAlert = enc.vitals && (enc.vitals.pulse > 100 || enc.vitals.pulse < 50);
+
+                        return (
+                          <tr key={enc.id} className="hover:bg-slate-50/70 transition-colors duration-150 text-left">
+                            {/* Reference Token */}
+                            <td className="p-3 whitespace-nowrap">
+                              <span className="inline-block bg-slate-100 hover:bg-slate-200 text-slate-800 font-mono font-bold text-[11px] px-2 py-1 rounded-md border border-slate-250">
+                                {enc.id}
+                              </span>
+                              <div className="mt-1 text-[9px] text-slate-400 font-mono font-medium leading-tight">
+                                {new Date(enc.date).toLocaleDateString()}
+                                <span className="block">{new Date(enc.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+                            </td>
+
+                            {/* Outpatient Demographics */}
+                            <td className="p-3 max-w-xs">
+                              <div className="font-extrabold text-slate-900 leading-tight block">{enc.patientName}</div>
+                              <div className="text-[10px] text-slate-500 mt-0.5">
+                                UHID: <span className="font-mono">{enc.patientId}</span> • Gender: {matchedPatient?.gender || "M"}
+                              </div>
+                              {abhaIdStr ? (
+                                <div className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-850 bg-emerald-50 border border-emerald-250/50 px-1.5 py-0.5 rounded mt-1">
+                                  <ShieldCheck className="h-2.5 w-2.5 fill-emerald-100 shrink-0 text-emerald-600" /> {abhaIdStr}
+                                </div>
+                              ) : (
+                                <div className="text-[9px] text-rose-500 bg-rose-50/50 border border-rose-100 px-1 py-0.2 select-none rounded inline-block mt-0.5">No ABHA Link</div>
+                              )}
+                            </td>
+
+                            {/* Logged Consultation Vitals */}
+                            <td className="p-3 whitespace-nowrap">
+                              <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                <span className="bg-slate-100 text-slate-705 border text-[9px] px-1.5 py-0.5 rounded-md font-mono font-semibold" title="BP (Blood Pressure)">
+                                  BP: {enc.vitals?.bp || "N/A"}
+                                </span>
+                                <span className={`border text-[9px] px-1.5 py-0.5 rounded-md font-mono font-semibold flex items-center gap-0.5 ${
+                                  isPulseAlert ? "bg-rose-50 text-rose-750 border-rose-200" : "bg-slate-100 text-slate-705"
+                                }`} title="Pulse Rate">
+                                  HR: {enc.vitals?.pulse || "N/A"}
+                                </span>
+                                <span className={`border text-[9px] px-1.5 py-0.5 rounded-md font-mono font-semibold flex items-center gap-0.5 ${
+                                  isTempAlert ? "bg-rose-50 text-rose-750 border-rose-200" : "bg-slate-100 text-slate-705"
+                                }`} title="Body Temperature">
+                                  Temp: {enc.vitals?.temp || "N/A"}°F
+                                </span>
+                                <span className={`border text-[9px] px-1.5 py-0.5 rounded-md font-mono font-semibold flex items-center gap-0.5 ${
+                                  isSpo2Alert ? "bg-rose-100 text-rose-800 border-rose-300 animate-pulse" : "bg-slate-100 text-slate-750"
+                                }`} title="Pulse Oximeter SpO2">
+                                  SpO2: {enc.vitals?.spo2 || "N/A"}%
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Chief Complaint Summary */}
+                            <td className="p-3 max-w-xs">
+                              <div className="text-slate-750 font-medium line-clamp-2 leading-relaxed" title={enc.chiefComplaints}>
+                                {enc.chiefComplaints}
+                              </div>
+                              {enc.prescriptions && enc.prescriptions.length > 0 && (
+                                <div className="mt-1 flex items-center gap-1 text-[9px] font-bold text-slate-500">
+                                  <span>💊 ePrescription:</span>
+                                  <span className="bg-slate-100 text-slate-750 px-1 rounded border">{enc.prescriptions.length} item(s)</span>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Diagnoses Code Tags */}
+                            <td className="p-3">
+                              <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                {enc.diagnoses && enc.diagnoses.map((diag) => (
+                                  <span key={diag.code} className="inline-block bg-slate-900 border border-slate-950 text-slate-100 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md leading-tight" title={diag.display}>
+                                    [{diag.code}] {diag.display}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+
+                            {/* Interoperability actions */}
+                            <td className="p-3 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {/* Load Data */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleLoadIntakeToForm(enc)}
+                                  title="Pre-fill form with this intake data to edit/clone"
+                                  className="p-1.5 text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-250 rounded-lg font-bold flex items-center gap-1 text-[10px] cursor-pointer transition"
+                                >
+                                  <Edit className="h-3 w-3" /> <span className="hidden sm:inline">Load Data</span>
+                                </button>
+
+                                {/* Trigger ABDM FHIR Core translation */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveEncounterForFhir(enc);
+                                    convertToABDMFHIR(enc);
+                                    const elem = document.getElementById("abdm-fhir-transformer-widget");
+                                    if (elem) elem.scrollIntoView({ behavior: "smooth" });
+                                  }}
+                                  title="Process through ABDM core FHIR document model"
+                                  className="p-1.5 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-250 rounded-lg font-bold flex items-center gap-1 text-[10px] cursor-pointer transition"
+                                >
+                                  <Code className="h-3 w-3" /> <span className="hidden sm:inline">Convert FHIR</span>
+                                </button>
+
+                                {/* Print consultation summary */}
+                                <button
+                                  type="button"
+                                  onClick={() => setPrintEncounter(enc)}
+                                  title="Generate official consultation slip summary"
+                                  className="p-1.5 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 rounded-lg font-bold flex items-center gap-1 text-[10px] cursor-pointer transition"
+                                >
+                                  <Printer className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
         ) : (
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
             <h4 className="text-sm font-bold text-slate-800 border-b pb-2">Facility-Wide Longitudinal Health Records Repository</h4>
@@ -755,6 +1049,221 @@ export default function DoctorView({ patients, encounters, onAddEncounter, hprVe
           </div>
         </div>
       </div>
+
+      {/* PRINT CONSULTATION SLIP MODAL */}
+      {printEncounter && (() => {
+        const matchedPatient = patients.find(p => p.id === printEncounter.patientId);
+        const birthYear = matchedPatient?.dob ? new Date(matchedPatient.dob).getFullYear() : 0;
+        const currentYear = new Date().getFullYear();
+        const calculatedAge = birthYear ? `${currentYear - birthYear} Y` : "38 Y";
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto select-none font-sans text-left">
+            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full border border-slate-300 max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+              {/* Modal Actions */}
+              <div className="bg-slate-100 px-5 py-3 border-b border-slate-200 flex justify-between items-center shrink-0">
+                <h3 className="font-extrabold text-slate-800 text-xs uppercase tracking-wide flex items-center gap-1.5">
+                  <Printer className="h-4 w-4 text-indigo-600" /> ABDM Compliant Outpatient Consultation Slip
+                </h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const originalTitle = document.title;
+                      document.title = `${printEncounter.id}_Consultation_Summary`;
+                      window.print();
+                      document.title = originalTitle;
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] py-1 px-3 rounded flex items-center gap-1 cursor-pointer transition"
+                  >
+                    <Printer className="h-3 w-3" /> Trigger Print
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPrintEncounter(null)}
+                    className="text-slate-400 hover:text-slate-600 p-1 rounded-lg border hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Consultation slip paper canvas */}
+              <div className="p-6 overflow-y-auto space-y-5" id="printable-sheet-paper">
+                {/* Paper Header */}
+                <div className="border-b-2 border-slate-900 pb-4 text-center space-y-1 relative">
+                  <div className="absolute top-0 right-0 border border-emerald-300 bg-emerald-50 text-emerald-800 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                    <ShieldCheck className="h-2.5 w-2.5 fill-emerald-110 text-emerald-600" /> ABDM VERIFIED
+                  </div>
+                  <span className="text-[10px] bg-slate-100 text-slate-800 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">
+                    Outpatient Health Record Registry
+                  </span>
+                  <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">AI Studio National Research Hospital</h2>
+                  <p className="text-xs text-slate-500 font-medium">Outpatient Department (OPD) Consultation Encounter Summarization</p>
+                  <p className="text-[9px] text-slate-400 font-mono">HFR ID: IN-MH-10008291 • ABDM-M3 Connected Node Integration Gateway</p>
+                </div>
+
+                {/* Doctor and Patient Demographics */}
+                <div className="grid grid-cols-2 gap-4 border border-slate-205 p-3.5 rounded-lg bg-slate-50 text-[11px]">
+                  <div className="space-y-1 border-r border-slate-200 pr-4">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Attending Practitioner</span>
+                    <p className="text-xs font-black text-slate-900">Dr. {printEncounter.doctorName}</p>
+                    <p className="text-slate-500 font-semibold">{printEncounter.department || "General Medicine"}</p>
+                    <p className="text-[10px] text-slate-400 font-mono font-medium">HPR Reg No: {printEncounter.doctorId}</p>
+                  </div>
+                  <div className="space-y-1 pl-2">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Patient Demographic</span>
+                    <p className="text-xs font-black text-slate-900">{printEncounter.patientName}</p>
+                    <p className="text-slate-500 font-semibold">Age/Gender: {calculatedAge} / {matchedPatient?.gender || "Male"} • Blood: {matchedPatient?.bloodGroup || "O+"}</p>
+                    <p className="text-[10px] text-slate-400 font-mono font-medium">Patient UHID: {printEncounter.patientId}</p>
+                    {matchedPatient?.abhaId && (
+                      <p className="text-[10px] text-emerald-700 font-bold font-mono">ABHA Address: {matchedPatient.abhaId}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Critical Vitals Indicators */}
+                <div className="border border-slate-200 rounded-lg overflow-hidden text-center text-xs">
+                  <div className="bg-slate-105 p-1.5 border-b border-slate-200 text-[9px] font-extrabold uppercase text-slate-500 tracking-widest">
+                    Registered Nursing Vitals Telemetry
+                  </div>
+                  <div className="grid grid-cols-5 divide-x divide-slate-150 font-mono text-[11px] p-2 bg-slate-50/50">
+                    <div>
+                      <p className="text-[9px] font-sans font-bold text-slate-400 uppercase">Blood Press</p>
+                      <p className="font-extrabold text-slate-800">{printEncounter.vitals?.bp || "N/A"}</p>
+                      <span className="text-[8px] text-slate-450 font-sans">mmHg</span>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-sans font-bold text-slate-400 uppercase">Heart Rate</p>
+                      <p className="font-extrabold text-slate-800">{printEncounter.vitals?.pulse || "N/A"}</p>
+                      <span className="text-[8px] text-slate-450 font-sans">bpm</span>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-sans font-bold text-slate-400 uppercase">Temperature</p>
+                      <p className="font-extrabold text-slate-800">{printEncounter.vitals?.temp || "N/A"} °F</p>
+                      <span className="text-[8px] text-slate-455 font-sans">Oral Axillary</span>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-sans font-bold text-slate-400 uppercase">Pulse SpO2</p>
+                      <p className="font-extrabold text-slate-800">{printEncounter.vitals?.spo2 || "N/A"}%</p>
+                      <span className="text-[8px] text-slate-450 font-sans">Saturated</span>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-sans font-bold text-slate-400 uppercase">Resp Rate</p>
+                      <p className="font-extrabold text-slate-800">{printEncounter.vitals?.respRate || "N/A"}</p>
+                      <span className="text-[8px] text-slate-450 font-sans">breaths/min</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Complaints and Diagnoses */}
+                <div className="space-y-3.5 text-xs text-slate-800">
+                  <div className="border border-slate-200 rounded-lg p-3 space-y-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Chief Complaint / Subjective Reason</span>
+                    <p className="font-semibold text-slate-900">{printEncounter.chiefComplaints}</p>
+                  </div>
+
+                  <div className="border border-slate-205 rounded-lg p-3 space-y-2">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Tagged ICD-10 / SNOMED CT Clinical Assessment</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {printEncounter.diagnoses?.map(diag => (
+                        <span key={diag.code} className="inline-flex items-center text-xs bg-slate-900 border border-slate-950 text-slate-100 font-bold py-1 px-2.5 rounded-md">
+                          [{diag.system}] {diag.code} • {diag.display}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* SOAP Notes Paradigm */}
+                <div className="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                  <div className="bg-slate-105 p-1.5 border-b border-slate-200 text-[9px] font-extrabold uppercase text-slate-500 tracking-widest">
+                    NABH Compliant Clinic SOAP Record Entries
+                  </div>
+                  <div className="grid grid-cols-2 divide-x divide-y divide-slate-150 p-2.5 text-[11px] gap-2">
+                    <div className="p-1">
+                      <strong className="text-indigo-800 block text-[9px] uppercase tracking-wide">Subjective (S)</strong>
+                      <p className="text-slate-600 italic mt-0.5">{printEncounter.soapNotes?.subjective || "Patient review recorded."}</p>
+                    </div>
+                    <div className="p-1">
+                      <strong className="text-emerald-800 block text-[9px] uppercase tracking-wide">Objective (O)</strong>
+                      <p className="text-slate-600 italic mt-0.5">{printEncounter.soapNotes?.objective || "Examination parameters stable."}</p>
+                    </div>
+                    <div className="p-1">
+                      <strong className="text-orange-800 block text-[9px] uppercase tracking-wide">Assessment (A)</strong>
+                      <p className="text-slate-600 italic mt-0.5">{printEncounter.soapNotes?.assessment || "Symptom set matches ICD guidelines."}</p>
+                    </div>
+                    <div className="p-1">
+                      <strong className="text-purple-800 block text-[9px] uppercase tracking-wide">Plan (P)</strong>
+                      <p className="text-slate-600 italic mt-0.5">{printEncounter.soapNotes?.plan || "Administer Rx as indicated, follow-up."}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ePrescriptions Builder */}
+                {printEncounter.prescriptions && printEncounter.prescriptions.length > 0 && (
+                  <div className="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                    <div className="bg-slate-105 p-1.5 border-b border-slate-200 text-[9px] font-bold uppercase text-slate-500 tracking-widest flex justify-between">
+                      <span>Pharmacological ePrescriptions Order List</span>
+                      <span className="text-[8px] font-mono text-emerald-800 lowercase">authorized per cdsco guidelines</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-[11px] divide-y divide-slate-155">
+                        <thead className="bg-slate-50 text-[9px] text-slate-400 uppercase font-black">
+                          <tr>
+                            <th className="p-2.5">Medicine Brand Title</th>
+                            <th className="p-2.5">Generic Subscribed Formula</th>
+                            <th className="p-2.5">Dosage</th>
+                            <th className="p-2.5 font-mono">Freq</th>
+                            <th className="p-2.5">Duration</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {printEncounter.prescriptions.map((p, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50/50 text-left">
+                              <td className="p-2.5 font-bold text-slate-900">{p.medicine}</td>
+                              <td className="p-2.5 text-slate-500 font-mono font-medium">{p.generic}</td>
+                              <td className="p-2.5">{p.dosage}</td>
+                              <td className="p-2.5 font-bold font-mono text-slate-700">{p.frequency}</td>
+                              <td className="p-2.5">{p.duration}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Institutional signature seal & QR Interoperability */}
+                <div className="flex justify-between items-end border-t border-slate-200 pt-5 leading-relaxed text-xs">
+                  <div className="flex items-center gap-3">
+                    {/* Embedded mockup QR code for ABDM locker */}
+                    <div className="p-1 bg-white border-2 border-slate-900 rounded-md shadow-xs shrink-0 select-none">
+                      <div className="grid grid-cols-4 gap-0.5 w-12 h-12">
+                        {[...Array(16)].map((_, i) => (
+                          <div key={i} className={`w-full h-full ${i % 3 === 0 || i % 4 === 1 ? 'bg-black' : 'bg-white'}`} />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="max-w-[180px]">
+                      <span className="text-[8px] text-slate-400 uppercase font-bold tracking-wider block">ABDM Health Locker QR</span>
+                      <p className="text-[9px] text-slate-500 font-medium leading-tight select-none">Scan with Ayushman Bharat Health Account app to sync instantly to your smartphone health records.</p>
+                    </div>
+                  </div>
+
+                  <div className="text-center w-48 space-y-1">
+                    <div className="text-xs font-serif italic text-indigo-900 border-b border-indigo-200 pb-1 font-extrabold select-none">
+                      Dr. {printEncounter.doctorName}
+                    </div>
+                    <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider block select-none">VERIFIED HPR STANDARDS</span>
+                    <span className="text-[9px] font-mono font-medium text-slate-400 block select-none">HPR No: {printEncounter.doctorId}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -357,6 +357,26 @@ export default function SuperAdminAnalytics({
         desc: "Co-administration triggers profound systemic vasodilation causing absolute life-threatening refractory hypotension.",
         system: "ICD-10 clinical pathway restriction rule loaded"
       });
+    } else if (
+      ((itemA.includes("aspirin") || itemA.includes("clopidogrel")) && (itemB.includes("warfarin") || itemB.includes("heparin") || itemB.includes("apixaban"))) ||
+      ((itemB.includes("aspirin") || itemB.includes("clopidogrel")) && (itemA.includes("warfarin") || itemA.includes("heparin") || itemA.includes("apixaban")))
+    ) {
+      setInteractionResult({
+        severity: "HIGH BLEED RISK ALERT",
+        score: "CRITICAL DANGER (88%)",
+        desc: "Severe synergic combination of antiplatelet and anticoagulant agents. Extremely high danger of gastrointestinal bleeding or systemic hemorrhage. Requires regular PT-INR monitoring.",
+        system: "CDSCO Pharmacology Registry warning"
+      });
+    } else if (
+      ((itemA.includes("lisinopril") || itemA.includes("enalapril")) && itemB.includes("spironolactone")) ||
+      ((itemB.includes("lisinopril") || itemB.includes("enalapril")) && itemA.includes("spironolactone"))
+    ) {
+      setInteractionResult({
+        severity: "HYPERKALEMIA RISK",
+        score: "MODERATE ALERT (75%)",
+        desc: "Co-administration of aldosterone antagonist with ACE inhibitors causes severe serum potassium retention. Routine electrolyte levels audits recommended.",
+        system: "WHO Therapeutics Formulary Guideline"
+      });
     } else {
       setInteractionResult({
         severity: "STANDARD SAFE MATCH",

@@ -6,6 +6,7 @@
 import { useState, useEffect } from "react";
 import { Fingerprint } from "lucide-react";
 import Navbar from "./components/Navbar";
+import { supabase, mapPatientToDb, mapDbToPatient } from "./supabaseClient";
 import ReceptionistView from "./components/ReceptionistView";
 import DoctorView from "./components/DoctorView";
 import NurseView from "./components/NurseView";
@@ -96,7 +97,33 @@ export default function App() {
         fetch("/api/pmjay_packages").then(r => r.json()),
         fetch("/api/audit_logs").then(r => r.json())
       ]);
-      setPatients(pRes);
+
+      // Attempt to load from Supabase - merging results on the fly
+      let mergedPatients: Patient[] = [...pRes];
+      try {
+        const { data: sPats, error: sErr } = await supabase
+          .from("patients")
+          .select("*")
+          .order("registered_at", { ascending: false });
+        
+        if (sErr) {
+          console.warn("Could not query 'patients' table from Supabase yet, default mock dataset will be used. Error:", sErr.message);
+        } else if (sPats && sPats.length > 0) {
+          const fetchedPats = sPats.map(mapDbToPatient);
+          // Merge avoiding duplicates by id (UHID)
+          const localIds = new Set(mergedPatients.map(p => p.id));
+          fetchedPats.forEach(fp => {
+            if (!localIds.has(fp.id)) {
+              mergedPatients.unshift(fp); // insert supabase ones at the beginning of the list
+            }
+          });
+          console.log(`Successfully synced and mapped ${sPats.length} patients from Supabase. Total visible: ${mergedPatients.length}`);
+        }
+      } catch (sbErr) {
+        console.warn("Supabase query bypass error:", sbErr);
+      }
+
+      setPatients(mergedPatients);
       setEncounters(eRes);
       setClaims(cRes);
       setBeds(bRes);
@@ -124,6 +151,20 @@ export default function App() {
 
   // Sync callbacks
   const handleAddPatient = async (pat: Patient) => {
+    // 1. Write to Supabase (if database schema is set up)
+    try {
+      const dbRow = mapPatientToDb(pat);
+      const { error } = await supabase.from("patients").insert([dbRow]);
+      if (error) {
+        console.warn("Supabase patient insert failed - make sure you ran the SQL creation script from the database panel! Error:", error.message);
+      } else {
+        console.log("Patient successfully written to Supabase Cloud Table");
+      }
+    } catch (sErr) {
+      console.error("Supabase client error:", sErr);
+    }
+
+    // 2. Also save to current backend
     try {
       const resp = await fetch("/api/patients", {
         method: "POST",
@@ -131,9 +172,21 @@ export default function App() {
         body: JSON.stringify(pat)
       });
       const data = await resp.json();
-      setPatients(prev => [...prev, data]);
+      setPatients(prev => {
+        if (!prev.some(p => p.id === data.id)) {
+          return [...prev, data];
+        }
+        return prev;
+      });
     } catch (err) {
       console.error(err);
+      // Fallback state updater
+      setPatients(prev => {
+        if (!prev.some(p => p.id === pat.id)) {
+          return [...prev, pat];
+        }
+        return prev;
+      });
     }
   };
 
@@ -146,6 +199,14 @@ export default function App() {
       });
       const data = await resp.json();
       if (data.success) {
+        // Also write Scan & Share patients to Supabase!
+        try {
+          const dbRow = mapPatientToDb(data.patient);
+          await supabase.from("patients").insert([dbRow]);
+        } catch (sErr) {
+          console.warn("Supabase skipped for ABDM Token:", sErr);
+        }
+
         // Append patient to state if not exists
         setPatients(prev => {
           if (!prev.some(p => p.id === data.patient.id)) {
@@ -448,6 +509,7 @@ export default function App() {
                 onLabSubmit={handleLabSubmit}
                 onPharmacyDispense={handleDispenseMedication}
                 onAddConsent={handleAddConsent}
+                doctors={hpr}
               />
             )}
 
