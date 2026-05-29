@@ -59,6 +59,40 @@ export default function InventoryView() {
   const [issueCheck2, setIssueCheck2] = useState(false);
   const [issueCheck3, setIssueCheck3] = useState(false);
 
+  // Department Issue history tracking
+  const [departmentIssues, setDepartmentIssues] = useState<any[]>([
+    {
+      id: "ISS-4012",
+      itemName: "Surgical Gloves (Size 7.5, Sterile)",
+      itemId: "INV-001",
+      quantity: 120,
+      department: "General Surgery OT",
+      technicianId: "HPR-7740-9102",
+      dateIssued: "2026-05-28T14:30:00Z",
+      status: "Verified & Dispatched"
+    },
+    {
+      id: "ISS-3891",
+      itemName: "Disposable Syringes 5ml with Needle",
+      itemId: "INV-002",
+      quantity: 500,
+      department: "OPD General Ward",
+      technicianId: "HPR-4412-8821",
+      dateIssued: "2026-05-27T09:15:00Z",
+      status: "Verified & Dispatched"
+    },
+    {
+      id: "ISS-3712",
+      itemName: "N95 Respirator Masks (3M)",
+      itemId: "INV-003",
+      quantity: 200,
+      department: "ER Trauma Unit",
+      technicianId: "HPR-9011-3829",
+      dateIssued: "2026-05-26T11:45:00Z",
+      status: "Verified & Dispatched"
+    }
+  ]);
+
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   // New Vendor Form State
@@ -199,6 +233,20 @@ export default function InventoryView() {
           type: 'success', 
           text: `SUCCESS: Distributed ${issueQuantity} units of ${selectedItem.name} to ${issueDept}. Logged under ABDM Custodian ${issueTechnicianId}!` 
         });
+        
+        // Append to local state list of issued records for dashboard transparency
+        const newIssue = {
+          id: `ISS-${Math.floor(4000 + Math.random() * 5000)}`,
+          itemName: selectedItem.name,
+          itemId: selectedItem.id,
+          quantity: issueQuantity,
+          department: issueDept,
+          technicianId: issueTechnicianId,
+          dateIssued: new Date().toISOString(),
+          status: "Verified & Dispatched"
+        };
+        setDepartmentIssues(prev => [newIssue, ...prev]);
+
         setIssueQuantity(10);
         setIssueCheck1(false);
         setIssueCheck2(false);
@@ -908,6 +956,75 @@ export default function InventoryView() {
                   </div>
                 </div>
               </div>
+
+              {/* DEPARTMENT STOCK ISSUE RECORD TABLE */}
+              <div className="col-span-1 lg:col-span-12 bg-white p-5 rounded-xl border border-slate-200 shadow-3xs hover:border-slate-300 transition duration-150" id="department-issues-dispatch-table">
+                <div className="flex items-center justify-between border-b pb-2 mb-3">
+                  <span className="text-xs font-extrabold text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
+                    📋 Department Issue Records ({departmentIssues.length})
+                  </span>
+                  <span className="text-[8px] font-mono font-bold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded leading-none border border-blue-200 uppercase">
+                    EMR STORE CATALOG FEED
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto max-h-[300px] scrollbar-thin scrollbar-thumb-slate-200 font-sans">
+                  <table className="w-full text-left text-[11px] text-slate-750">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[8.5px] font-black uppercase text-slate-400 tracking-wider">
+                      <tr>
+                        <th className="p-2 pl-3">Issue/Reference ID</th>
+                        <th className="p-2">Consumable Details</th>
+                        <th className="p-2">Target Wing</th>
+                        <th className="p-2">Quantity</th>
+                        <th className="p-2 font-mono">Attending Clinician</th>
+                        <th className="p-2">Date/Time Issued</th>
+                        <th className="p-2 pr-3 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {departmentIssues.map((issue, idx) => {
+                        return (
+                          <tr key={issue.id || idx} className="hover:bg-slate-50/60 transition-colors font-sans text-[11px]">
+                            <td className="p-2 pl-3 font-mono font-bold text-slate-900 leading-tight">
+                              {issue.id}
+                            </td>
+                            <td className="p-2">
+                              <div className="font-semibold text-slate-800 leading-snug">{issue.itemName}</div>
+                              <div className="text-[9px] text-slate-400 font-mono font-semibold">{issue.itemId}</div>
+                            </td>
+                            <td className="p-2">
+                              <span className="bg-blue-50 text-blue-700 border border-blue-100 font-medium px-2 py-0.5 rounded-md text-[10.5px]">
+                                {issue.department}
+                              </span>
+                            </td>
+                            <td className="p-2 font-mono font-bold text-xs text-slate-800">
+                              {issue.quantity} units
+                            </td>
+                            <td className="p-2 text-slate-600 font-medium font-mono text-[10.5px]">
+                              {issue.technicianId}
+                            </td>
+                            <td className="p-2 font-mono text-[10px] text-slate-500">
+                              {new Date(issue.dateIssued).toLocaleString()}
+                            </td>
+                            <td className="p-2 pr-3 text-right">
+                              <span className="text-[8.5px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded uppercase">
+                                {issue.status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {departmentIssues.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="p-4 text-center text-slate-400 italic text-xs">
+                            No stock issues dispatched in this session.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 
@@ -963,124 +1080,206 @@ export default function InventoryView() {
 
           {/* VIEW D: Add New Consumable Asset Form */}
           {itemsSubTab === "add_item" && (
-            <div className="bg-white rounded-xl border p-5 max-w-2xl mx-auto shadow-xs">
-              <h3 className="text-sm font-bold text-slate-900 border-b pb-2 mb-4 flex items-center gap-1.5">
-                <PlusCircle className="h-4.5 w-4.5 text-blue-600" /> Add New Consumable Asset Register
-              </h3>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full max-w-7xl mx-auto" id="add-consumable-asset-grid">
+              {/* Form Side */}
+              <div className="lg:col-span-5 bg-white rounded-xl border p-5 shadow-xs" id="add-consumable-form-card">
+                <h3 className="text-sm font-bold text-slate-900 border-b pb-2 mb-4 flex items-center gap-1.5">
+                  <PlusCircle className="h-4.5 w-4.5 text-blue-600" /> Add New Consumable Asset Register
+                </h3>
 
-              <form onSubmit={handleCreateNewItem} className="space-y-4 text-xs">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Asset Legal Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
-                    placeholder="e.g. Sterile Cannula Gauge 22G IP"
-                    className="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:outline-hidden"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <form onSubmit={handleCreateNewItem} className="space-y-4 text-xs">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-605 uppercase mb-1">Category Classification *</label>
-                    <select
-                      value={newItemCategory}
-                      onChange={(e) => setNewItemCategory(e.target.value as any)}
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-slate-50"
-                    >
-                      <option value="Critical Consumables">Critical Consumables</option>
-                      <option value="Surgical Instruments">Surgical Instruments</option>
-                      <option value="Personal Protective Equipment">Personal Protective Equipment</option>
-                      <option value="General Medicines">General Medicines</option>
-                      <option value="Anesthetics">Anesthetics</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Contractor Vendor Partner *</label>
-                    <select
-                      value={newItemVendorName}
-                      onChange={(e) => setNewItemVendorName(e.target.value)}
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-slate-50"
-                    >
-                      {vendors.map(v => (
-                        <option key={v.id} value={v.name}>{v.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Initial Stock Units *</label>
-                    <input
-                      type="number"
-                      required
-                      min={0}
-                      value={newItemStock}
-                      onChange={(e) => setNewItemStock(parseInt(e.target.value) || 0)}
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:outline-hidden font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Unit Net Cost (₹) *</label>
-                    <input
-                      type="number"
-                      required
-                      min={0}
-                      value={newItemUnitCost}
-                      onChange={(e) => setNewItemUnitCost(parseInt(e.target.value) || 0)}
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:outline-hidden font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Low Reorder Threshold *</label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      value={newItemReorder}
-                      onChange={(e) => setNewItemReorder(parseInt(e.target.value) || 0)}
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:outline-hidden font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Schedules Batch Reference *</label>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Asset Legal Name *</label>
                     <input
                       type="text"
                       required
-                      value={newItemBatch}
-                      onChange={(e) => setNewItemBatch(e.target.value)}
-                      className="w-full text-xs border rounded p-2 focus:outline-hidden"
-                      placeholder="e.g. B-CAN-99"
+                      value={newItemName}
+                      onChange={(e) => setNewItemName(e.target.value)}
+                      placeholder="e.g. Sterile Cannula Gauge 22G IP"
+                      className="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:outline-hidden"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Expiration Cutoff Date *</label>
-                    <input
-                      type="date"
-                      required
-                      value={newItemExpiry}
-                      onChange={(e) => setNewItemExpiry(e.target.value)}
-                      className="w-full text-xs border rounded p-2 focus:outline-hidden"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-605 uppercase mb-1">Category Classification *</label>
+                      <select
+                        value={newItemCategory}
+                        onChange={(e) => setNewItemCategory(e.target.value as any)}
+                        className="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:outline-hidden"
+                      >
+                        <option value="Critical Consumables">Critical Consumables</option>
+                        <option value="Surgical Instruments">Surgical Instruments</option>
+                        <option value="Personal Protective Equipment">Personal Protective Equipment</option>
+                        <option value="General Medicines">General Medicines</option>
+                        <option value="Anesthetics">Anesthetics</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Contractor Vendor Partner *</label>
+                      <select
+                        value={newItemVendorName}
+                        onChange={(e) => setNewItemVendorName(e.target.value)}
+                        className="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:outline-hidden font-bold text-indigo-700"
+                      >
+                        {vendors.map(v => (
+                          <option key={v.id} value={v.name}>{v.name}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Initial Stock Units *</label>
+                      <input
+                        type="number"
+                        required
+                        min={0}
+                        value={newItemStock}
+                        onChange={(e) => setNewItemStock(parseInt(e.target.value) || 0)}
+                        className="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:outline-hidden font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Unit Net Cost (₹) *</label>
+                      <input
+                        type="number"
+                        required
+                        min={0}
+                        value={newItemUnitCost}
+                        onChange={(e) => setNewItemUnitCost(parseInt(e.target.value) || 0)}
+                        className="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:outline-hidden font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Low Reorder Threshold *</label>
+                      <input
+                        type="number"
+                        required
+                        min={1}
+                        value={newItemReorder}
+                        onChange={(e) => setNewItemReorder(parseInt(e.target.value) || 0)}
+                        className="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:outline-hidden font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Schedules Batch Reference *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newItemBatch}
+                        onChange={(e) => setNewItemBatch(e.target.value)}
+                        className="w-full text-xs border rounded p-2 focus:outline-hidden"
+                        placeholder="e.g. B-CAN-99"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Expiration Cutoff Date *</label>
+                      <input
+                        type="date"
+                        required
+                        value={newItemExpiry}
+                        onChange={(e) => setNewItemExpiry(e.target.value)}
+                        className="w-full text-xs border rounded p-2 focus:outline-hidden"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-1 shadow-sm transition cursor-pointer text-xs"
+                  >
+                    <CheckCircle className="h-4 w-4" /> Save Asset Details to Central Server Database
+                  </button>
+                </form>
+              </div>
+
+              {/* Table Side */}
+              <div className="lg:col-span-7 bg-white rounded-xl border p-5 shadow-xs" id="consumable-registry-table-card">
+                <div className="flex items-center justify-between border-b pb-2 mb-4">
+                  <span className="text-xs font-extrabold text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
+                    📦 Centrally Registered Asset Ledger ({items.length})
+                  </span>
+                  <span className="text-[8px] font-mono font-bold text-indigo-805 text-indigo-750 bg-indigo-50 px-1.5 py-0.5 rounded leading-none border border-indigo-200 uppercase">
+                    asset register hub
+                  </span>
                 </div>
 
-                <button
-                  type="submit"
-                  className="w-full bg-blue-650 hover:bg-blue-700 bg-blue-600 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-1 shadow-sm transition"
-                >
-                  <CheckCircle className="h-4 w-4" /> Save Asset Details to Central Server Database
-                </button>
-              </form>
+                <div className="overflow-x-auto max-h-[500px] scrollbar-thin scrollbar-thumb-slate-200 font-sans">
+                  <table className="w-full text-left text-[11px] text-slate-750">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[8.5px] font-black uppercase text-slate-400 tracking-wider">
+                      <tr>
+                        <th className="p-2 pl-3">Asset Code & Name</th>
+                        <th className="p-2">Category</th>
+                        <th className="p-2">Central Stock</th>
+                        <th className="p-2">Batch / Expiry</th>
+                        <th className="p-2">Unit Cost</th>
+                        <th className="p-2 pr-3 text-right">Vendor Partner</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {items.map((item, idx) => {
+                        const isLow = item.centralStockUnits <= item.reorderLevel;
+                        return (
+                          <tr key={item.id || idx} className="hover:bg-slate-50/60 transition-colors font-sans text-[11px]">
+                            <td className="p-2 pl-3">
+                              <div className="font-bold text-slate-900 leading-tight">{item.name}</div>
+                              <div className="text-[9px] font-mono text-slate-400 font-semibold">{item.id}</div>
+                            </td>
+                            <td className="p-2">
+                              <span className={`text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border inline-block ${
+                                item.category === "Critical Consumables" ? "bg-rose-50 text-rose-700 border-rose-200" :
+                                item.category === "Surgical Instruments" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                item.category === "Personal Protective Equipment" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                item.category === "General Medicines" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                                "bg-amber-50 text-amber-700 border-amber-200"
+                              }`}>
+                                {item.category}
+                              </span>
+                            </td>
+                            <td className="p-2">
+                              <div className={`font-mono text-xs font-bold leading-none ${isLow ? 'text-rose-600' : 'text-slate-800'}`}>
+                                {item.centralStockUnits}
+                              </div>
+                              {isLow && (
+                                <span className="text-[7.5px] font-bold text-rose-600 animate-pulse uppercase tracking-wider block mt-0.5">
+                                  ⚠️ LOW (REORDER: {item.reorderLevel})
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-2 font-mono text-[9.5px] text-slate-600">
+                              <div className="font-semibold">{item.batchNumber}</div>
+                              <div className="text-[8.5px] text-slate-400">{item.expiryDate}</div>
+                            </td>
+                            <td className="p-2 font-mono font-medium text-slate-850 text-slate-800 text-xs">
+                              ₹{item.unitCost}
+                            </td>
+                            <td className="p-2 pr-3 text-right">
+                              <div className="font-semibold text-slate-755 text-slate-750 leading-tight">{item.vendorName}</div>
+                              <div className="text-[8.5px] font-mono text-slate-400">{item.vendorId}</div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {items.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-4 text-center text-slate-400 italic text-xs">
+                            No consumable assets registered in store index.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -1094,7 +1293,7 @@ export default function InventoryView() {
             <button
               onClick={() => setGrnSubTab("ledger")}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
-                grnSubTab === "ledger" ? "bg-indigo-650 bg-indigo-600 text-white shadow-xs" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                grnSubTab === "ledger" ? "bg-indigo-600 text-white shadow-xs" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
               }`}
             >
               <ClipboardList className="h-3.5 w-3.5" /> 📋 GRN Receipts Ledger
@@ -1107,7 +1306,7 @@ export default function InventoryView() {
                 setGrnPO(`PO-2026-${Math.floor(1000 + Math.random() * 9000)}`);
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
-                grnSubTab === "create" ? "bg-indigo-650 bg-indigo-600 text-white shadow-xs" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                grnSubTab === "create" ? "bg-indigo-600 text-white shadow-xs" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
               }`}
             >
               <Plus className="h-3.5 w-3.5" /> ➕ Log Cargo Goods Received Note
@@ -1115,7 +1314,7 @@ export default function InventoryView() {
             <button
               onClick={() => setGrnSubTab("po_drafts")}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
-                grnSubTab === "po_drafts" ? "bg-indigo-650 bg-indigo-600 text-white shadow-xs" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                grnSubTab === "po_drafts" ? "bg-indigo-600 text-white shadow-xs" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
               }`}
             >
               <FileCheck className="h-3.5 w-3.5" /> ⚡ Procurement Purchase Orders (POs)

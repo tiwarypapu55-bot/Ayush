@@ -1667,7 +1667,7 @@ export default function AbhaIntegrationHub({
                                   });
                                   setSuccessMessage("Linked profile retrieved successfully.");
                                 }}
-                                className="bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-[10px] py-1 px-2 rounded cursor-pointer"
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] py-1 px-2 rounded cursor-pointer"
                               >
                                 Retrieve Profile Card
                               </button>
@@ -1923,7 +1923,7 @@ export default function AbhaIntegrationHub({
                         <button
                           onClick={() => handleLinkAbhaWithExistingPatient(linkSelectedPatientId, verResult.abhaDetails!.abhaId, verResult.abhaDetails!.id)}
                           disabled={!linkSelectedPatientId || isProcessing}
-                          className="bg-indigo-650 text-white font-bold p-2.5 rounded text-xs hover:bg-indigo-700 w-full disabled:bg-slate-300 cursor-pointer"
+                          className="bg-indigo-600 text-white font-bold p-2.5 rounded text-xs hover:bg-indigo-700 w-full disabled:bg-slate-300 cursor-pointer"
                         >
                           Establish Linkage Securely
                         </button>
@@ -2076,7 +2076,7 @@ export default function AbhaIntegrationHub({
                     </div>
                     <button
                       onClick={dispatchFhirToNhe}
-                      className="bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs py-1.5 px-3.5 rounded flex items-center justify-center gap-1 cursor-pointer shadow-sm"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-1.5 px-3.5 rounded flex items-center justify-center gap-1 cursor-pointer shadow-sm"
                     >
                       <Lock className="h-3 w-3" /> Transmit to Exchange
                     </button>
@@ -2315,7 +2315,7 @@ export default function AbhaIntegrationHub({
                       setScannedStep("simulated_scanned");
                       setScanShareActiveToken(null);
                     }}
-                    className="bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg cursor-pointer shrink-0 transition"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg cursor-pointer shrink-0 transition"
                   >
                     Simulate New Patient QR Scan
                   </button>
@@ -2479,7 +2479,7 @@ export default function AbhaIntegrationHub({
                           setScannedStep("waiting");
                           setScannedDemographics(null);
                         }}
-                        className="bg-indigo-650 hover:bg-indigo-705 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer"
                       >
                         Next Counter Patient
                       </button>
@@ -2838,7 +2838,7 @@ export default function AbhaIntegrationHub({
                                   href="https://facility.abdm.gov.in/?utm_source=chatgpt.com"
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="bg-indigo-650 hover:bg-indigo-700 text-white font-extrabold text-xs px-4.5 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition shrink-0 select-text"
+                                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-4.5 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition shrink-0 select-text"
                                 >
                                   Register at facility.abdm.gov.in ↗
                                 </a>
@@ -3654,7 +3654,7 @@ export default function AbhaIntegrationHub({
                                             {selectedClaimDetail.logs.map((log: string, i: number) => (
                                               <div key={i} className="text-[10px] text-slate-605 pl-4 border-l-2 border-indigo-500/40 relative leading-normal font-semibold">
                                                 <div className="absolute -left-1.5 top-1.5 h-3 w-3 bg-indigo-50 border border-indigo-400 rounded-full flex items-center justify-center">
-                                                  <span className="h-1.5 w-1.5 bg-indigo-650 rounded-full"></span>
+                                                  <span className="h-1.5 w-1.5 bg-indigo-600 rounded-full"></span>
                                                 </div>
                                                 {log}
                                               </div>

@@ -238,131 +238,219 @@ export default function AncillaryViews({
           {/* Submenu View 1: ENTRY & ORDER QUEUE */}
           {lisSubTab === "entry" && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animation-fade-in" id="lis-order-entry-panel">
-              {/* Lab results submission */}
-              <form onSubmit={handleLabFormSubmit} className="space-y-4 bg-slate-50 p-5 rounded-lg border shadow-xs" id="lis-result-form">
-                <span className="block text-xs font-bold text-slate-400 uppercase tracking-widest border-b pb-1 flex items-center gap-1">
-                  <FileText className="h-4 w-4 text-indigo-500" /> Lab Record Feed Entry Form
-                </span>
-                
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Select Active Encounter</label>
-                    <select
-                      value={selectedEncounterId}
-                      onChange={(e) => {
-                        setSelectedEncounterId(e.target.value);
-                        setSelectedOrderIndex(0);
-                      }}
-                      className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden font-bold"
-                    >
-                      {encounters.map(enc => (
-                        <option key={enc.id} value={enc.id}>
-                          {enc.id} — {enc.patientName} ({enc.patientId})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Select Lab Investigational Order</label>
-                    <select
-                      value={selectedOrderIndex}
-                      onChange={(e) => setSelectedOrderIndex(parseInt(e.target.value) || 0)}
-                      className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden font-bold text-indigo-800"
-                    >
-                      {encounters
-                        .find(e => e.id === selectedEncounterId)
-                        ?.labOrders.map((lo, idx) => (
-                          <option key={lo.testCode} value={idx}>
-                            [{lo.testCode}] {lo.testName} ({lo.status})
-                          </option>
-                        )) || <option>No orders found</option>}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
-                  <div>
-                    <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Quantitative Result Entry *</label>
-                    <input
-                      type="text"
-                      required
-                      value={labResult}
-                      onChange={(e) => setLabResult(e.target.value)}
-                      placeholder="e.g. 0.08 ng/mL (Troponin I)"
-                      className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden font-mono"
-                    />
-                  </div>
+              {/* Lab results submission column */}
+              <div className="space-y-6" id="lab-feed-left-col">
+                <form onSubmit={handleLabFormSubmit} className="space-y-4 bg-slate-50 p-5 rounded-lg border shadow-xs" id="lis-result-form">
+                  <span className="block text-xs font-bold text-slate-400 uppercase tracking-widest border-b pb-1 flex items-center gap-1">
+                    <FileText className="h-4 w-4 text-indigo-500" /> Lab Record Feed Entry Form
+                  </span>
                   
-                  <div className="pt-2 flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="lab-critical-check"
-                      checked={criticalFlag}
-                      onChange={(e) => setCriticalFlag(e.target.checked)}
-                      className="h-4 w-4 text-red-600 rounded"
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Select Active Encounter</label>
+                      <select
+                        value={selectedEncounterId}
+                        onChange={(e) => {
+                          setSelectedEncounterId(e.target.value);
+                          setSelectedOrderIndex(0);
+                        }}
+                        className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden font-bold font-sans"
+                      >
+                        {encounters.map(enc => (
+                          <option key={enc.id} value={enc.id}>
+                            {enc.id} — {enc.patientName} ({enc.patientId})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Select Lab Investigational Order</label>
+                      <select
+                        value={selectedOrderIndex}
+                        onChange={(e) => setSelectedOrderIndex(parseInt(e.target.value) || 0)}
+                        className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden font-bold text-indigo-800 font-sans"
+                      >
+                        {encounters
+                          .find(e => e.id === selectedEncounterId)
+                          ?.labOrders.map((lo, idx) => (
+                            <option key={lo.testCode} value={idx}>
+                              [{lo.testCode}] {lo.testName} ({lo.status})
+                            </option>
+                          )) || <option>No orders found</option>}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Quantitative Result Entry *</label>
+                      <input
+                        type="text"
+                        required
+                        value={labResult}
+                        onChange={(e) => setLabResult(e.target.value)}
+                        placeholder="e.g. 0.08 ng/mL (Troponin I)"
+                        className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden font-mono"
+                      />
+                    </div>
+                    
+                    <div className="pt-2 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="lab-critical-check"
+                        checked={criticalFlag}
+                        onChange={(e) => setCriticalFlag(e.target.checked)}
+                        className="h-4 w-4 text-red-600 rounded"
+                      />
+                      <label htmlFor="lab-critical-check" className="text-xs text-red-600 font-bold uppercase flex items-center gap-1 cursor-pointer select-none">
+                        <ShieldAlert className="h-4 w-4 animate-bounce" /> Trigger Critical Panic Alarm
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Auto-fill pathology emulator helpers */}
+                  <div className="bg-slate-100 p-2.5 rounded-lg border text-[11px] space-y-1.5">
+                    <span className="font-bold text-slate-700 block text-[10px] uppercase">Pathology Instrument Emulator Sync:</span>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLabResult("11.8 g/dL");
+                          setReportNotes("Erythrocyte indices indicate mild iron-deficiency anemia profile.");
+                        }}
+                        className="bg-white border rounded px-2 py-1 text-[10px] font-sans hover:bg-indigo-50 hover:text-indigo-800"
+                      >
+                        🧪 Feed Hb: 11.8 g/dL
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLabResult("132 mg/dL");
+                          setReportNotes("Postprandial glycemic measurement verified.");
+                        }}
+                        className="bg-white border rounded px-2 py-1 text-[10px] font-sans hover:bg-indigo-50 hover:text-indigo-800"
+                      >
+                        🧪 Feed Glucose: 132 mg/dL
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLabResult("1.4 mg/dL");
+                          setReportNotes("Creatinine levels are slightly elevated. Monitor hydration status.");
+                        }}
+                        className="bg-white border rounded px-2 py-1 text-[10px] font-sans hover:bg-indigo-50 hover:text-indigo-800"
+                      >
+                        🧪 Feed Creatinine: 1.4 mg/dL
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Attending Technologist Notes</label>
+                    <textarea
+                      rows={3}
+                      value={reportNotes}
+                      onChange={(e) => setReportNotes(e.target.value)}
+                      placeholder="Ischemic indications corresponding with troponin evaluation"
+                      className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden"
                     />
-                    <label htmlFor="lab-critical-check" className="text-xs text-red-600 font-bold uppercase flex items-center gap-1 cursor-pointer select-none">
-                      <ShieldAlert className="h-4 w-4 animate-bounce" /> Trigger Critical Panic Alarm
-                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-slate-900 hover:bg-slate-800 text-slate-100 font-bold text-xs py-2 rounded-lg cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Authenticate & Sync Lab Result to EHR
+                  </button>
+                </form>
+
+                {/* Lab Record Feed Entries Table */}
+                <div className="bg-white p-4.5 rounded-xl border border-slate-200 space-y-3 shadow-3xs" id="lis-synchronized-records-table">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="text-xs font-extrabold text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
+                      🔬 Synchronized Clinical Lab Records ({
+                        encounters.flatMap(enc => (enc.labOrders || []).filter(lo => lo.status === "Completed" || lo.resultValue)).length
+                      })
+                    </span>
+                    <span className="text-[8px] font-mono font-bold text-indigo-800 bg-indigo-50 px-1.5 py-0.5 rounded leading-none border border-indigo-200 uppercase">
+                      ehr index feed
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto max-h-[300px] scrollbar-thin scrollbar-thumb-slate-100">
+                    <table className="w-full text-left text-[11px] text-slate-750">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-[8.5px] font-black uppercase text-slate-400 tracking-wider">
+                        <tr>
+                          <th className="p-2 pl-3">Encounter / Patient</th>
+                          <th className="p-2">Test Details</th>
+                          <th className="p-2">Category</th>
+                          <th className="p-2">Quantity Value</th>
+                          <th className="p-2 pr-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {encounters.flatMap(enc => 
+                          (enc.labOrders || [])
+                            .filter(lo => lo.status === "Completed" || lo.resultValue)
+                            .map((lo, idx) => {
+                              return (
+                                <tr key={`${enc.id}-${lo.testCode}-${idx}`} className="hover:bg-slate-50/60 transition-colors font-sans text-[11px]">
+                                  <td className="p-2 pl-3">
+                                    <div className="font-bold text-slate-900 leading-tight">{enc.patientName}</div>
+                                    <div className="text-[9px] font-mono text-slate-400 font-semibold">{enc.id} • {enc.patientId}</div>
+                                  </td>
+                                  <td className="p-2">
+                                    <div className="text-slate-800 font-semibold leading-tight">{lo.testName}</div>
+                                    <div className="text-[9px] text-slate-500 font-mono">{lo.testCode}</div>
+                                  </td>
+                                  <td className="p-2">
+                                    <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                                      lo.category === "Hematology" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                                      lo.category === "Biochemistry" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                      lo.category === "Microbiology" ? "bg-cyan-50 text-cyan-700 border-cyan-200" :
+                                      "bg-rose-50 text-rose-700 border-rose-200"
+                                    }`}>
+                                      {lo.category}
+                                    </span>
+                                  </td>
+                                  <td className="p-2">
+                                    {lo.criticalAlert ? (
+                                      <div className="inline-flex items-center gap-0.5 bg-rose-55 text-rose-800 border border-rose-200 font-mono text-[9.5px] font-black px-1.5 py-0.5 rounded animate-pulse">
+                                        🚨 {lo.resultValue || "CRITICAL"}
+                                      </div>
+                                    ) : (
+                                      <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded shadow-3xs">
+                                        {lo.resultValue}
+                                      </span>
+                                    )}
+                                    {lo.reportNotes && (
+                                      <div className="text-[9px] text-slate-500 font-medium leading-tight mt-1 max-w-[150px] truncate" title={lo.reportNotes}>
+                                        {lo.reportNotes}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="p-2 pr-3">
+                                    <span className="text-[8px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded uppercase">
+                                      COMPLETED
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                        )}
+                        {encounters.flatMap(enc => (enc.labOrders || []).filter(lo => lo.status === "Completed" || lo.resultValue)).length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="p-4 text-center text-slate-400 italic text-xs">
+                              No completed results verified in live LIS feed.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-
-                {/* Auto-fill pathology emulator helpers */}
-                <div className="bg-slate-100 p-2.5 rounded-lg border text-[11px] space-y-1.5">
-                  <span className="font-bold text-slate-700 block text-[10px] uppercase">Pathology Instrument Emulator Sync:</span>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLabResult("11.8 g/dL");
-                        setReportNotes("Erythrocyte indices indicate mild iron-deficiency anemia profile.");
-                      }}
-                      className="bg-white border rounded px-2 py-1 text-[10px] font-sans hover:bg-indigo-50 hover:text-indigo-800"
-                    >
-                      🧪 Feed Hb: 11.8 g/dL
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLabResult("132 mg/dL");
-                        setReportNotes("Postprandial glycemic measurement verified.");
-                      }}
-                      className="bg-white border rounded px-2 py-1 text-[10px] font-sans hover:bg-indigo-50 hover:text-indigo-800"
-                    >
-                      🧪 Feed Glucose: 132 mg/dL
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLabResult("1.4 mg/dL");
-                        setReportNotes("Creatinine levels are slightly elevated. Monitor hydration status.");
-                      }}
-                      className="bg-white border rounded px-2 py-1 text-[10px] font-sans hover:bg-indigo-50 hover:text-indigo-800"
-                    >
-                      🧪 Feed Creatinine: 1.4 mg/dL
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Attending Technologist Notes</label>
-                  <textarea
-                    rows={3}
-                    value={reportNotes}
-                    onChange={(e) => setReportNotes(e.target.value)}
-                    placeholder="Ischemic indications corresponding with troponin evaluation"
-                    className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-slate-100 font-bold text-xs py-2 rounded-lg cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Authenticate & Sync Lab Result to EHR
-                </button>
-              </form>
+              </div>
 
               {/* View outstanding/pending tests list */}
               <div className="space-y-4" id="lis-pending-pool-list">
@@ -1265,75 +1353,156 @@ export default function AncillaryViews({
           {pharmacySubTab === "expiry" && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animation-fade-in" id="pharmacy-procurement">
               {/* Left Column PO form */}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!reqDrugName) return alert("Please enter Formulation name!");
-                  const costNum = parseInt(reqQty) * 1.5; // simulated unit cost
-                  const newPO = {
-                    id: `PO-${Math.floor(Math.random() * 800) + 7000}`,
-                    drugName: reqDrugName,
-                    qty: parseInt(reqQty),
-                    vendor: reqVendor,
-                    cost: costNum,
-                    status: "Pending" as const
-                  };
-                  setProcurementOrders([newPO, ...procurementOrders]);
-                  setReqDrugName("");
-                  alert(`Procurement order generated and dispatched to: ${reqVendor}`);
-                }}
-                className="lg:col-span-5 bg-slate-50 p-5 rounded-xl border space-y-4"
-              >
-                <span className="block text-xs font-bold text-slate-500 uppercase pb-1 border-b">Instant Purchase Order (PO) Requisition</span>
-                
-                <div className="space-y-3.5 text-xs">
-                  <div>
-                    <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Drug Formulation Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={reqDrugName}
-                      onChange={(e) => setReqDrugName(e.target.value)}
-                      placeholder="e.g. Paracetamol 650mg IP"
-                      className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden font-bold"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
+              <div className="lg:col-span-5 space-y-4" id="pharmacy-procurement-left-col">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!reqDrugName) return alert("Please enter Formulation name!");
+                    const costNum = parseInt(reqQty) * 1.5; // simulated unit cost
+                    const newPO = {
+                      id: `PO-${Math.floor(Math.random() * 800) + 7000}`,
+                      drugName: reqDrugName,
+                      qty: parseInt(reqQty),
+                      vendor: reqVendor,
+                      cost: costNum,
+                      status: "Pending" as const
+                    };
+                    setProcurementOrders([newPO, ...procurementOrders]);
+                    setReqDrugName("");
+                    alert(`Procurement order generated and dispatched to: ${reqVendor}`);
+                  }}
+                  className="bg-slate-50 p-5 rounded-xl border space-y-4"
+                >
+                  <span className="block text-xs font-bold text-slate-500 uppercase pb-1 border-b">Instant Purchase Order (PO) Requisition</span>
+                  
+                  <div className="space-y-3.5 text-xs">
                     <div>
-                      <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Requantity (Total Capsules) *</label>
+                      <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Drug Formulation Name *</label>
                       <input
-                        type="number"
+                        type="text"
                         required
-                        value={reqQty}
-                        onChange={(e) => setReqQty(e.target.value)}
-                        placeholder="e.g. 500"
-                        className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden"
+                        value={reqDrugName}
+                        onChange={(e) => setReqDrugName(e.target.value)}
+                        placeholder="e.g. Paracetamol 650mg IP"
+                        className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden font-bold"
                       />
                     </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Target Pharmaceutical Vendor</label>
-                      <select
-                        value={reqVendor}
-                        onChange={(e) => setReqVendor(e.target.value)}
-                        className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden font-bold text-indigo-700"
-                      >
-                        <option value="Cipla Healthcare">Cipla Healthcare</option>
-                        <option value="Sun Pharmaceutical Labs">Sun Pharmaceutical Labs</option>
-                        <option value="GlaxoSmithKleine India">GlaxoSmithKline India</option>
-                        <option value="Dr. Reddy's Laboratories">Dr. Reddy's Labs</option>
-                      </select>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Requantity (Total Capsules) *</label>
+                        <input
+                          type="number"
+                          required
+                          value={reqQty}
+                          onChange={(e) => setReqQty(e.target.value)}
+                          placeholder="e.g. 500"
+                          className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-600 font-bold uppercase mb-1">Target Pharmaceutical Vendor</label>
+                        <select
+                          value={reqVendor}
+                          onChange={(e) => setReqVendor(e.target.value)}
+                          className="w-full text-xs bg-white border rounded p-2 focus:outline-hidden font-bold text-indigo-700"
+                        >
+                          <option value="Cipla Healthcare">Cipla Healthcare</option>
+                          <option value="Sun Pharmaceutical Labs">Sun Pharmaceutical Labs</option>
+                          <option value="GlaxoSmithKleine India">GlaxoSmithKline India</option>
+                          <option value="Dr. Reddy's Laboratories">Dr. Reddy's Labs</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <button
-                  type="submit"
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-slate-100 font-bold text-xs py-2 rounded-lg cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <ShoppingBag className="h-4 w-4" /> Despatch Digital Purchase Order
-                </button>
-              </form>
+                  <button
+                    type="submit"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-slate-100 font-bold text-xs py-2 rounded-lg cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <ShoppingBag className="h-4 w-4" /> Despatch Digital Purchase Order
+                  </button>
+                </form>
+
+                {/* Instant Purchase Order Requisitions Table */}
+                <div className="bg-white p-4.5 rounded-xl border border-slate-200 space-y-3 shadow-3xs" id="instant-po-requisitions-table">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="text-xs font-extrabold text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
+                      📦 Instant PO Requisitions ({procurementOrders.length})
+                    </span>
+                    <span className="text-[8px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded leading-none border border-emerald-200 uppercase">
+                      procurement feed
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto max-h-[220px] scrollbar-thin scrollbar-thumb-slate-200 font-sans">
+                    <table className="w-full text-left text-[11px] text-slate-750">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-[8.5px] font-black uppercase text-slate-400 tracking-wider">
+                        <tr>
+                          <th className="p-2 pl-3">Order Code</th>
+                          <th className="p-2">Drug Formulation</th>
+                          <th className="p-2">Vendor / Qty</th>
+                          <th className="p-2 text-right pr-3">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {procurementOrders.map((po, idx) => {
+                          return (
+                            <tr key={po.id || idx} className="hover:bg-slate-50/60 transition-colors font-sans text-[11px]">
+                              <td className="p-2 pl-3">
+                                <div className="font-mono font-bold text-slate-900 leading-tight">{po.id}</div>
+                                <div className="text-[9px] font-semibold text-indigo-700">₹{po.cost.toLocaleString()}</div>
+                              </td>
+                              <td className="p-2">
+                                <div className="font-semibold text-slate-800 leading-snug">{po.drugName}</div>
+                              </td>
+                              <td className="p-2">
+                                <div className="text-slate-700 font-medium">{po.qty} caps</div>
+                                <div className="text-[9px] text-slate-500 font-sans leading-none">{po.vendor}</div>
+                              </td>
+                              <td className="p-2 pr-3 text-right space-y-1">
+                                {po.status === "Pending" ? (
+                                  <div className="flex flex-col sm:flex-row justify-end gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setProcurementOrders(prev => prev.map(p => p.id === po.id ? { ...p, status: "Dispatched" } : p));
+                                      }}
+                                      className="text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-200 hover:border-emerald-400 transition cursor-pointer"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setProcurementOrders(prev => prev.filter(p => p.id !== po.id));
+                                      }}
+                                      className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-rose-200 hover:border-rose-400 transition cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-[8.5px] font-mono font-bold text-slate-800 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded uppercase block text-center">
+                                    DISPATCHED
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {procurementOrders.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="p-4 text-center text-slate-400 italic text-xs">
+                              No active requisitions created in this session.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
 
               {/* Stock procurement watchlists */}
               <div className="lg:col-span-7 bg-white p-5 border rounded-xl space-y-4">
@@ -1425,7 +1594,7 @@ export default function AncillaryViews({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
             <div>
               <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                <span className="bg-indigo-650 text-white p-1 rounded-lg"><Activity className="h-5 w-5" /></span>
+                <span className="bg-indigo-600 text-white p-1 rounded-lg"><Activity className="h-5 w-5" /></span>
                 ABHA Self-Access Patient EHR Portal
               </h2>
               <p className="text-xs text-slate-500 mt-1">
@@ -1457,7 +1626,7 @@ export default function AncillaryViews({
               onClick={() => setPatientSubTab("records")}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer select-none ${
                 patientSubTab === "records" 
-                  ? "bg-indigo-650 text-white shadow-md shadow-indigo-100 border border-indigo-700" 
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-100 border border-indigo-600" 
                   : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-200"
               }`}
             >
@@ -1469,7 +1638,7 @@ export default function AncillaryViews({
               onClick={() => setPatientSubTab("consent")}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer select-none ${
                 patientSubTab === "consent" 
-                  ? "bg-indigo-650 text-white shadow-md shadow-indigo-100 border border-indigo-700" 
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-100 border border-indigo-600" 
                   : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-200"
               }`}
             >
@@ -1481,7 +1650,7 @@ export default function AncillaryViews({
               onClick={() => setPatientSubTab("billing")}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer select-none ${
                 patientSubTab === "billing" 
-                  ? "bg-indigo-650 text-white shadow-md shadow-indigo-100 border border-indigo-700" 
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-100 border border-indigo-600" 
                   : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-200"
               }`}
             >
@@ -1493,7 +1662,7 @@ export default function AncillaryViews({
               onClick={() => setPatientSubTab("abhacard")}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer select-none ${
                 patientSubTab === "abhacard" 
-                  ? "bg-indigo-650 text-white shadow-md shadow-indigo-100 border border-indigo-700" 
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-100 border border-indigo-600" 
                   : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-200"
               }`}
             >
@@ -1517,7 +1686,7 @@ export default function AncillaryViews({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {patientEncounters.map(enc => (
                       <div key={enc.id} className="border border-slate-200 p-5 rounded-xl bg-white space-y-4 hover:shadow-md transition duration-200 relative overflow-hidden group">
-                        <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-650"></div>
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-600"></div>
                         
                         <div className="flex justify-between items-start text-xs">
                           <div>
@@ -1916,14 +2085,14 @@ export default function AncillaryViews({
                             <button
                               type="button"
                               onClick={() => setPaymentMethod("upi")}
-                              className={`flex-1 py-1 rounded text-center transition ${paymentMethod === "upi" ? "bg-indigo-650 text-white" : "hover:bg-slate-100 text-slate-600"}`}
+                              className={`flex-1 py-1 rounded text-center transition ${paymentMethod === "upi" ? "bg-indigo-600 text-white" : "hover:bg-slate-100 text-slate-600"}`}
                             >
                               Scan UPI QR Code
                             </button>
                             <button
                               type="button"
                               onClick={() => setPaymentMethod("card")}
-                              className={`flex-1 py-1 rounded text-center transition ${paymentMethod === "card" ? "bg-indigo-650 text-white" : "hover:bg-slate-100 text-slate-600"}`}
+                              className={`flex-1 py-1 rounded text-center transition ${paymentMethod === "card" ? "bg-indigo-600 text-white" : "hover:bg-slate-100 text-slate-600"}`}
                             >
                               Credit Card
                             </button>
@@ -1988,7 +2157,7 @@ export default function AncillaryViews({
                               </div>
                               <button
                                 type="submit"
-                                className="w-full bg-indigo-650 hover:bg-indigo-700 text-white text-[11px] font-extrabold py-2 rounded-lg cursor-pointer transition uppercase"
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-extrabold py-2 rounded-lg cursor-pointer transition uppercase"
                               >
                                 Authenticate CARD &amp; Pay ₹{netTotal.toLocaleString()}
                               </button>
@@ -2046,7 +2215,7 @@ export default function AncillaryViews({
                           <span className="text-[11px] text-slate-800 uppercase font-black block mt-0.5">National Health Authority</span>
                         </div>
                         <div className="flex items-center gap-1.5 bg-slate-50 border px-2 py-1 rounded">
-                          <div className="w-4.5 h-4.5 bg-indigo-650 rounded-full text-[7px] text-white flex items-center justify-center font-black">ND</div>
+                          <div className="w-4.5 h-4.5 bg-indigo-600 rounded-full text-[7px] text-white flex items-center justify-center font-black">ND</div>
                           <span className="text-[10px] font-extrabold text-[#003580] tracking-tight font-sans">ABHA Card</span>
                         </div>
                       </div>
@@ -2295,7 +2464,7 @@ export default function AncillaryViews({
                     onClick={() => {
                       window.print();
                     }}
-                    className="bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs px-5 py-2 rounded-xl border border-indigo-700 shadow-md flex items-center gap-1.5 cursor-pointer"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-5 py-2 rounded-xl border border-indigo-600 shadow-md flex items-center gap-1.5 cursor-pointer"
                   >
                     <Printer className="h-4 w-4" /> Trigger Browser Print Dial
                   </button>

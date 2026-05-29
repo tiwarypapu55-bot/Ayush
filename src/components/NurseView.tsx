@@ -628,28 +628,30 @@ export default function NurseView({ patients, beds, encounters, onAllocateBed, o
               </div>
 
               {showAddBedForm ? (
-                <form onSubmit={handleCreateCustomBed} className="bg-white p-4.5 rounded-xl border border-slate-205 space-y-3.5">
-                  <h5 className="font-bold text-xs text-slate-800 border-b pb-1 flex justify-between items-center">
+                <form onSubmit={handleCreateCustomBed} className="bg-white p-5 rounded-2xl border border-slate-205 space-y-4 shadow-sm text-left animate-in fade-in zoom-in-95 duration-150">
+                  <h5 className="font-extrabold text-slate-900 text-sm border-b pb-2 flex justify-between items-center">
                     <span>Add New Bed Assignment Node</span>
-                    <button type="button" onClick={() => setShowAddBedForm(false)} className="text-slate-400 hover:text-slate-600 font-bold">×</button>
+                    <button type="button" onClick={() => setShowAddBedForm(false)} className="text-slate-400 hover:text-slate-650 font-black text-lg transition-transform hover:scale-110">×</button>
                   </h5>
                   <div>
-                    <label className="block text-[9.5px] text-slate-450 font-black uppercase mb-1">Bed Number Code *</label>
+                    <label className="block text-[9.5px] text-slate-700 font-extrabold tracking-wider uppercase mb-1.5">BED NUMBER CODE *</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. ICU-04, PRIVATE-102"
                       value={newBedNumber}
                       onChange={(e) => setNewBedNumber(e.target.value)}
-                      className="w-full text-xs border border-slate-250 rounded p-2 outline-hidden focus:border-indigo-400 font-mono"
+                      className="w-full text-xs font-mono border border-slate-300 rounded-lg p-2.5 outline-hidden focus:border-slate-800 transition"
+                      id="input-bed-number"
                     />
                   </div>
                   <div>
-                    <label className="block text-[9.5px] text-slate-450 font-black uppercase mb-1">Ward Classification Class *</label>
+                    <label className="block text-[9.5px] text-slate-700 font-extrabold tracking-wider uppercase mb-1.5">WARD CLASSIFICATION CLASS *</label>
                     <select
                       value={newBedType}
                       onChange={(e) => setNewBedType(e.target.value as any)}
-                      className="w-full text-xs border border-slate-250 rounded p-2 outline-hidden"
+                      className="w-full text-xs border border-slate-300 rounded-lg p-2.5 outline-hidden focus:border-slate-800 transition bg-white"
+                      id="select-bed-type"
                     >
                       {["General Ward", "Semi Private", "Private", "ICU", "NICU", "PICU", "Isolation Ward"].map(cls => (
                         <option key={cls} value={cls}>{cls}</option>
@@ -657,18 +659,20 @@ export default function NurseView({ patients, beds, encounters, onAllocateBed, o
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[9.5px] text-slate-450 font-black uppercase mb-1">Simulated Daily Facility Pricing (₹) *</label>
+                    <label className="block text-[9.5px] text-slate-700 font-extrabold tracking-wider uppercase mb-1.5">SIMULATED DAILY FACILITY PRICING (₹) *</label>
                     <input
                       type="number"
                       required
                       value={newBedPrice}
                       onChange={(e) => setNewBedPrice(e.target.value)}
-                      className="w-full text-xs border border-slate-250 rounded p-2 outline-hidden font-mono"
+                      className="w-full text-xs font-mono border border-slate-300 rounded-lg p-2.5 outline-hidden focus:border-slate-800 transition"
+                      id="input-bed-price"
                     />
                   </div>
                   <button
                     type="submit"
-                    className="w-full bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs py-2 rounded-lg cursor-pointer transition"
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs py-2.5 rounded-lg cursor-pointer transition shadow-xs"
+                    id="btn-deploy-custom-bed"
                   >
                     Deploy New Bed To Active Census
                   </button>
@@ -678,10 +682,83 @@ export default function NurseView({ patients, beds, encounters, onAllocateBed, o
                   type="button"
                   onClick={() => setShowAddBedForm(true)}
                   className="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 border-dashed rounded-xl py-4.5 text-xs font-bold transition cursor-pointer flex flex-col items-center justify-center gap-1.5"
+                  id="btn-activate-add-bed"
                 >
                   <Plus className="h-5 w-5 text-indigo-500" /> Install Emergency Reserve Bed Node
                 </button>
               )}
+
+              {/* LIVE CAPACITY SCALES MONITOR TABLE */}
+              <div className="bg-white p-4.5 rounded-xl border border-slate-200 mt-4 space-y-3 shadow-3xs" id="capacity-scales-monitor-table">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="text-xs font-extrabold text-slate-800 uppercase tracking-tight flex items-center gap-1">
+                    📋 Deployed Space Capacity Scales ({allAvailableBeds.length})
+                  </span>
+                  <span className="text-[8px] font-mono font-bold text-emerald-800 bg-emerald-55 text-emerald-50 px-1.5 py-0.5 rounded leading-none border border-emerald-300/40 uppercase">
+                    live grid
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto max-h-[200px] scrollbar-thin scrollbar-thumb-slate-200">
+                  <table className="w-full text-left text-[11px] text-slate-750">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[8.5px] font-black uppercase text-slate-400 tracking-wider">
+                      <tr>
+                        <th className="p-2 pl-3">Designation CODE</th>
+                        <th className="p-2">Classification</th>
+                        <th className="p-2">daily Rate</th>
+                        <th className="p-2 text-center text-slate-400">status</th>
+                        <th className="p-2 pr-3 text-right">actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {allAvailableBeds.map((bed, idx) => {
+                        const isOccupied = bed.status === "Occupied";
+                        const isLocal = bed.id.startsWith("LOCAL-");
+                        return (
+                          <tr key={bed.id || idx} className="hover:bg-slate-50/60 transition-colors font-mono text-[10.5px]">
+                            <td className="p-2 pl-3 font-semibold text-slate-900">
+                              <span className="flex items-center gap-1">
+                                {bed.bedNumber}
+                                {isLocal && <span className="text-[7px] font-sans font-bold bg-indigo-50 text-indigo-600 px-1 rounded-sm border border-indigo-200/40 shrink-0">Scale</span>}
+                              </span>
+                            </td>
+                            <td className="p-2 text-slate-500 font-sans">{bed.type}</td>
+                            <td className="p-2 font-bold text-slate-800">₹{bed.pricePerDay}</td>
+                            <td className="p-2 text-center">
+                              <span className={`text-[8.5px] font-bold font-sans uppercase px-1.5 py-0.3 rounded border ${
+                                isOccupied 
+                                  ? "bg-rose-50 text-rose-700 border-rose-200/50" 
+                                  : "bg-emerald-50 text-emerald-705 border-emerald-250/50"
+                              }`}>
+                                {bed.status}
+                              </span>
+                            </td>
+                            <td className="p-2 pr-3 text-right">
+                              {isLocal ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isOccupied) {
+                                      alert("Cannot dismantle an allocated bed block while occupied. Discharge the patient first.");
+                                    } else {
+                                      setLocalBeds(prev => prev.filter(b => b.id !== bed.id));
+                                    }
+                                  }}
+                                  className="text-rose-502 hover:bg-rose-50 text-xs font-bold font-sans px-1.5 py-0.5 rounded border border-rose-200 hover:border-rose-400 transition"
+                                >
+                                  Dismantle
+                                </button>
+                              ) : (
+                                <span className="text-[9px] font-sans text-slate-400">Base Master</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
               {/* Status and instructions */}
               <div className="text-xs space-y-2 bg-white p-3.5 rounded-xl border border-slate-200">
@@ -994,6 +1071,73 @@ export default function NurseView({ patients, beds, encounters, onAllocateBed, o
                 </button>
               )}
 
+              {/* REGISTERED NEWBORN ADMISSIONS TABLE */}
+              <div className="bg-white p-4.5 rounded-xl border border-slate-200 space-y-3 shadow-3xs" id="neonatal-admissions-monitor-table">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="text-xs font-extrabold text-slate-800 uppercase tracking-tight flex items-center gap-1">
+                    👶 Registered Newborn Admissions ({nurseryBabies.length})
+                  </span>
+                  <span className="text-[8px] font-mono font-bold text-rose-800 bg-rose-50 px-1.5 py-0.5 rounded leading-none border border-rose-200 uppercase">
+                    nursery index
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto max-h-[220px] scrollbar-thin scrollbar-thumb-slate-200">
+                  <table className="w-full text-left text-[11px] text-slate-750">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[8.5px] font-black uppercase text-slate-400 tracking-wider">
+                      <tr>
+                        <th className="p-2 pl-3">Infant Name</th>
+                        <th className="p-2">Details</th>
+                        <th className="p-2">Mother</th>
+                        <th className="p-2">Bassinet</th>
+                        <th className="p-2 text-right pr-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {nurseryBabies.map((baby, idx) => {
+                        return (
+                          <tr key={baby.id || idx} className="hover:bg-slate-50/60 transition-colors font-sans text-[11px]">
+                            <td className="p-2 pl-3">
+                              <div className="font-bold text-slate-900 leading-tight">{baby.babyName}</div>
+                              <div className="text-[9px] font-mono text-slate-400 font-semibold">{baby.id}</div>
+                            </td>
+                            <td className="p-2">
+                              <div className="text-slate-700 font-medium">{baby.gender} • {baby.weight} kg</div>
+                              <div className="text-[9px] text-slate-500 font-mono">{baby.gestationalWeeks} wks gestation</div>
+                            </td>
+                            <td className="p-2 text-slate-600">
+                              <div className="font-medium text-slate-700">{baby.motherName}</div>
+                              <div className="text-[9px] font-mono text-slate-400">{baby.motherId}</div>
+                            </td>
+                            <td className="p-2">
+                              <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded shadow-3xs">{baby.bassinetNumber}</span>
+                            </td>
+                            <td className="p-2 pr-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNurseryBabies(prev => prev.filter(b => b.id !== baby.id));
+                                }}
+                                className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-rose-200 hover:border-rose-400 transition cursor-pointer"
+                              >
+                                Discharge
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {nurseryBabies.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="p-4 text-center text-slate-400 italic text-xs">
+                            No registered neonatal admissions currently on ward.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               {/* Stat Card */}
               <div className="bg-white p-3.5 rounded-xl border border-slate-200 text-xs text-slate-500 leading-relaxed font-sans">
                 💡 <strong>Dynamic Nursery Status:</strong> All newborns are synchronized automatically with respective parent charts to support M3 ABDM health lockers and PMJAY newborn pediatric surgery approvals.
@@ -1098,7 +1242,7 @@ export default function NurseView({ patients, beds, encounters, onAllocateBed, o
                                     };
                                     setAdHocMarLogs(prev => [mockLog, ...prev]);
                                   }}
-                                  className="bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-[10px] py-1 px-2.5 rounded-lg select-none transition cursor-pointer"
+                                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] py-1 px-2.5 rounded-lg select-none transition cursor-pointer"
                                 >
                                   Mark Dispensed
                                 </button>

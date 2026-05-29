@@ -388,7 +388,7 @@ export default function SuperAdminDatabaseExplorer({
                     }}
                     className={`w-full text-left rounded-xl p-2.5 text-xs transition duration-150 flex items-center justify-between border cursor-pointer ${
                       isActive
-                        ? "bg-indigo-650 text-white border-indigo-650 shadow-sm font-bold"
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm font-bold"
                         : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200/60"
                     }`}
                   >
@@ -790,7 +790,7 @@ export default function SuperAdminDatabaseExplorer({
       {/* Insert Modal / Overlay Form */}
       {isInserting && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-250 shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl border border-slate-250 shadow-2xl max-w-5xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold uppercase tracking-wider font-mono text-indigo-300">
@@ -808,64 +808,149 @@ export default function SuperAdminDatabaseExplorer({
               </button>
             </div>
 
-            <form onSubmit={handleSubmitNewRow} className="p-5 flex flex-col gap-4">
-              <div className="max-h-96 overflow-y-auto pr-1 space-y-4 style-scroll">
-                {getInsertPlaceholderFields().map((field) => (
-                  <div key={field.name} className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                      {field.label}
-                      {field.required && <span className="text-rose-500">*</span>}
-                    </label>
-                    {field.desc && (
-                      <span className="text-[10.5px] text-slate-400 leading-none">
-                        {field.desc}
-                      </span>
-                    )}
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-h-[80vh] overflow-y-auto style-scroll">
+              {/* Left Column: Input Form */}
+              <form onSubmit={handleSubmitNewRow} className="lg:col-span-5 flex flex-col gap-4 lg:border-r lg:pr-6 border-slate-100">
+                <span className="block text-xs font-bold text-slate-500 uppercase pb-1 border-b">
+                  🆕 Row Field Values
+                </span>
+                
+                <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1 style-scroll">
+                  {getInsertPlaceholderFields().map((field) => (
+                    <div key={field.name} className="flex flex-col gap-1">
+                      <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                        {field.label}
+                        {field.required && <span className="text-rose-500">*</span>}
+                      </label>
+                      {field.desc && (
+                        <span className="text-[10.5px] text-slate-400 leading-none">
+                          {field.desc}
+                        </span>
+                      )}
 
-                    {field.type === "select" ? (
-                      <select
-                        name={field.name}
-                        required={field.required}
-                        onChange={handleFormChange}
-                        value={formData[field.name] ?? field.defaultValue ?? ""}
-                        className="w-full bg-slate-55 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-indigo-505 text-slate-800"
-                      >
-                        <option value="">Select Option</option>
-                        {field.options?.map((opt) => (
-                          <option key={opt} value={opt}>{opt}</option>
+                      {field.type === "select" ? (
+                        <select
+                          name={field.name}
+                          required={field.required}
+                          onChange={handleFormChange}
+                          value={formData[field.name] ?? field.defaultValue ?? ""}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-indigo-500 text-slate-800 focus:outline-hidden"
+                        >
+                          <option value="">Select Option</option>
+                          {field.options?.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+                          name={field.name}
+                          required={field.required}
+                          value={formData[field.name] ?? ""}
+                          onChange={handleFormChange}
+                          placeholder={`Provide ${field.label.toLowerCase()}`}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:ring-indigo-500 text-slate-800 focus:outline-hidden"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-end gap-2 border-t pt-4 border-slate-100 mt-auto">
+                  <button
+                    type="button"
+                    onClick={() => setIsInserting(false)}
+                    className="px-4 py-2 border border-slate-200 rounded-xl text-xs text-slate-650 hover:bg-slate-50 cursor-pointer transition font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4.5 py-2 text-xs font-bold cursor-pointer transition shadow hover:shadow-md"
+                  >
+                    Execute Insert
+                  </button>
+                </div>
+              </form>
+
+              {/* Right Column: Schema Table Live Preview */}
+              <div className="lg:col-span-7 flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="text-xs font-extrabold text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
+                    📋 Active Table Registry ({currentData.length})
+                  </span>
+                  <span className="text-[8px] font-mono font-bold text-indigo-800 bg-indigo-50 px-1.5 py-0.5 rounded leading-none border border-indigo-200 uppercase">
+                    live registry database
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto max-h-[50vh] border border-slate-150 rounded-2xl style-scroll">
+                  <table className="min-w-full divide-y divide-slate-150 text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-[9px] tracking-wider sticky top-0 bg-slate-50 z-10 select-none">
+                      <tr>
+                        {columns.slice(0, 4).map((col) => (
+                          <th key={col} className="px-3 py-2.5 text-slate-600 font-bold border-b">
+                            {col.replace(/([A-Z])/g, " $1").replace("abha", "ABHA")}
+                          </th>
                         ))}
-                      </select>
-                    ) : (
-                      <input
-                        type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
-                        name={field.name}
-                        required={field.required}
-                        value={formData[field.name] ?? ""}
-                        onChange={handleFormChange}
-                        placeholder={`Provide ${field.label.toLowerCase()}`}
-                        className="w-full bg-slate-55 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:ring-indigo-500 text-slate-800 focus:outline-none"
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-100 text-[11px]">
+                      {currentData.map((row: any, rIdx: number) => {
+                        const primId = row.id || row.code;
+                        return (
+                          <tr key={primId || rIdx} className="hover:bg-slate-50/60 transition-colors font-sans">
+                            {columns.slice(0, 4).map((col) => {
+                              const val = row[col];
+                              return (
+                                <td key={col} className="px-3 py-2 whitespace-nowrap max-w-[150px] truncate font-medium text-slate-700">
+                                  {col === "id" || col === "code" || col === "abhaNumber" ? (
+                                    <span className="font-mono bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-[9.5px] font-semibold text-slate-800">
+                                      {val}
+                                    </span>
+                                  ) : col === "status" || col === "preAuthStatus" || col === "paymentStatus" ? (
+                                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold border inline-block ${
+                                      val === "Active" || val === "Approved" || val === "Paid" || val === "Operational" || val === "SUCCESS"
+                                        ? "bg-green-50 border-green-200 text-green-700 font-bold"
+                                        : val === "Suspended" || val === "Queried" || val === "Unpaid" || val === "DENIED"
+                                        ? "bg-rose-50 border-rose-250 text-rose-700 font-bold"
+                                        : "bg-amber-50 border-amber-200 text-amber-700 font-bold"
+                                    }`}>
+                                      {val}
+                                    </span>
+                                  ) : typeof val === "boolean" ? (
+                                    <span className={`font-semibold ${val ? "text-emerald-600" : "text-slate-400"}`}>
+                                      {val ? "● Verified" : "○ Pending"}
+                                    </span>
+                                  ) : col.toLowerCase().includes("cost") || col.toLowerCase().includes("charge") || col.toLowerCase().includes("rate") || col.toLowerCase().includes("amount") ? (
+                                    <strong className="font-semibold text-slate-900 font-mono text-[11px]">
+                                      ₹{Number(val).toLocaleString("en-IN")}
+                                    </strong>
+                                  ) : (
+                                    String(val ?? "—")
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                      {currentData.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="p-4 text-center text-slate-400 italic text-xs">
+                            No records in this database table view.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
 
-              <div className="flex items-center justify-end gap-2 border-t pt-4 border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsInserting(false)}
-                  className="px-4 py-2 border border-slate-205 rounded-xl text-xs text-slate-650 hover:bg-slate-50 cursor-pointer transition font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4.5 py-2 text-xs font-bold cursor-pointer transition shadow hover:shadow-md"
-                >
-                  Execute Insert
-                </button>
+                <div className="text-[10px] text-slate-400 italic mt-auto flex items-center gap-1 text-slate-500 font-mono select-none">
+                  🛡️ Cryptographic HMAC SHA-256 signing sequence is executed instantly upon submitting new records.
+                </div>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

@@ -75,6 +75,7 @@ export default function App() {
   const [billing, setBilling] = useState<BillingRecord[]>([]);
   const [pmjayPackages, setPmjayPackages] = useState<PmjayPackage[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [sharedPatientId, setSharedPatientId] = useState<string>("");
 
   const loadData = async () => {
     try {
@@ -124,6 +125,9 @@ export default function App() {
       }
 
       setPatients(mergedPatients);
+      if (mergedPatients.length > 0) {
+        setSharedPatientId(prev => prev || mergedPatients[0].id);
+      }
       setEncounters(eRes);
       setClaims(cRes);
       setBeds(bRes);
@@ -464,6 +468,8 @@ export default function App() {
                 onScanShareRegister={handleScanShareRegister}
                 onAddAbhaMaster={(record) => handleAddRow("abha_master", record)}
                 onRefreshData={loadData}
+                sharedPatientId={sharedPatientId}
+                onSharedPatientIdChange={setSharedPatientId}
               />
             )}
 
@@ -473,6 +479,8 @@ export default function App() {
                 encounters={encounters}
                 onAddEncounter={handleAddEncounter}
                 hprVerifiedDoctors={hpr.filter(u => u.role === "Doctor")}
+                sharedPatientId={sharedPatientId}
+                onSharedPatientIdChange={setSharedPatientId}
               />
             )}
 

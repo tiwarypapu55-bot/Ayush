@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Stethoscope, FileJson, Heart, CheckCircle2, User, Sparkles, Plus, Trash2, Code, ShieldCheck, AlertTriangle, Search, Printer, Activity, Eye, Edit, ClipboardList, X } from "lucide-react";
 import { Patient, Encounter, DiagnosisCode, Medication } from "../types";
 
@@ -7,6 +7,8 @@ interface DoctorViewProps {
   encounters: Encounter[];
   onAddEncounter: (encounter: Encounter) => void;
   hprVerifiedDoctors: { id: string; name: string; abdmNumber: string; specialty: string }[];
+  sharedPatientId?: string;
+  onSharedPatientIdChange?: (id: string) => void;
 }
 
 const COMMON_DIAGNOSES: DiagnosisCode[] = [
@@ -25,9 +27,35 @@ const SUGGESTED_DRUGS = [
   { medicine: "Augmentin 625 Duo", generic: "Amoxicillin + Clavulanic Acid", dosage: "1 Tab", frequency: "1-0-1" }
 ];
 
-export default function DoctorView({ patients, encounters, onAddEncounter, hprVerifiedDoctors }: DoctorViewProps) {
-  const [selectedDoctor, setSelectedDoctor] = useState(hprVerifiedDoctors[0]);
-  const [selectedPatientId, setSelectedPatientId] = useState(patients[0]?.id || "");
+export default function DoctorView({ 
+  patients, 
+  encounters, 
+  onAddEncounter, 
+  hprVerifiedDoctors,
+  sharedPatientId,
+  onSharedPatientIdChange
+}: DoctorViewProps) {
+  const [selectedDoctorId, setSelectedDoctorId] = useState("");
+  const selectedDoctor = hprVerifiedDoctors.find(d => d.id === selectedDoctorId) || hprVerifiedDoctors[0] || {
+    id: "HPR-MOCK-DOC",
+    name: "Dr. Sandeep Vardhan",
+    abdmNumber: "HPR-44-2222-1111",
+    specialty: "General Medicine"
+  };
+  const [selectedPatientId, setSelectedPatientId] = useState(sharedPatientId || patients[0]?.id || "");
+
+  useEffect(() => {
+    if (sharedPatientId && sharedPatientId !== selectedPatientId) {
+      setSelectedPatientId(sharedPatientId);
+    }
+  }, [sharedPatientId]);
+
+  const handleSelectPatient = (id: string) => {
+    setSelectedPatientId(id);
+    if (onSharedPatientIdChange) {
+      onSharedPatientIdChange(id);
+    }
+  };
   
   // Encounter Form states
   const [complaints, setComplaints] = useState("");
@@ -247,8 +275,7 @@ export default function DoctorView({ patients, encounters, onAddEncounter, hprVe
             <select
               value={selectedDoctor.id}
               onChange={(e) => {
-                const found = hprVerifiedDoctors.find(d => d.id === e.target.value);
-                if (found) setSelectedDoctor(found);
+                setSelectedDoctorId(e.target.value);
               }}
               className="text-xs border border-slate-300 rounded-lg py-1.5 px-3 bg-slate-50 font-semibold focus:outline-hidden"
               id="doctor-selector"
@@ -265,29 +292,9 @@ export default function DoctorView({ patients, encounters, onAddEncounter, hprVe
         {/* Action navigation tabs */}
         <div className="bg-slate-100 p-1 rounded-lg flex space-x-1 border border-slate-200" id="doctor-view-tab-control">
           <button
-            onClick={() => setActiveTab("encounter")}
-            className={`flex-1 py-1.5 px-3 rounded-md text-xs font-bold transition ${
-              activeTab === "encounter" ? "bg-white text-slate-950 shadow-xs" : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            📋 Create Active Consultation (OPD/IPD)
-          </button>
-          <button
-            onClick={() => setActiveTab("clinical-history")}
-            className={`flex-1 py-1.5 px-3 rounded-md text-xs font-bold transition ${
-              activeTab === "clinical-history" ? "bg-white text-slate-950 shadow-xs" : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            📂 Longitudinal EMR EHR File Cabinet ({encounters.length})
-          </button>
-        </div>
-
-        {/* Action navigation tabs */}
-        <div className="bg-slate-100 p-1 rounded-lg flex space-x-1 border border-slate-200" id="doctor-view-tab-control">
-          <button
             onClick={() => setActiveTab("dashboard")}
             className={`flex-1 py-1.5 px-3 rounded-md text-xs font-bold transition ${
-              activeTab === "dashboard" ? "bg-white text-slate-950 shadow-xs" : "text-slate-500 hover:text-slate-800"
+              activeTab === "dashboard" ? "bg-white text-slate-950 shadow-xs" : "text-slate-550 hover:text-slate-800"
             }`}
           >
             🩺 Doctor Overview Dashboard
@@ -382,12 +389,12 @@ export default function DoctorView({ patients, encounters, onAddEncounter, hprVe
 
                 {/* Pending Lab Reports */}
                 <div className="bg-white p-5 rounded-xl border border-slate-250 shadow-xs text-xs">
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b pb-1.5 mb-3">Pending Lab/Imaging LOINC reports ({encounters.length > 0 ? encounters[0].labOrders.filter(l=>l.status!=='Completed').length : 0})</span>
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b pb-1.5 mb-3">Pending Lab/Imaging LOINC reports ({encounters.length > 0 ? (encounters[0].labOrders || []).filter(l=>l.status!=='Completed').length : 0})</span>
                   
                   <div className="space-y-2">
                     {encounters.length > 0 ? (
                       encounters.flatMap(enc => 
-                        enc.labOrders.map((lo, lIdx) => (
+                        (enc.labOrders || []).map((lo, lIdx) => (
                           <div key={lIdx} className="flex justify-between items-center p-2 border-b last:border-0 pb-2">
                             <div>
                               <strong className="text-slate-900 font-medium text-[11px]">{lo.testName}</strong>
@@ -422,7 +429,7 @@ export default function DoctorView({ patients, encounters, onAddEncounter, hprVe
                 <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Select Active Patient</label>
                 <select
                   value={selectedPatientId}
-                  onChange={(e) => setSelectedPatientId(e.target.value)}
+                  onChange={(e) => handleSelectPatient(e.target.value)}
                   className="w-full text-sm bg-white border border-slate-300 rounded-lg p-2.5 outline-hidden"
                   required
                 >

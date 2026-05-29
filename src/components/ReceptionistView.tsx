@@ -12,6 +12,8 @@ interface ReceptionistProps {
   onScanShareRegister: (abhaId: string, name: string) => Promise<any>;
   onAddAbhaMaster?: (record: AbhaMaster) => void;
   onRefreshData?: () => void;
+  sharedPatientId?: string;
+  onSharedPatientIdChange?: (id: string) => void;
 }
 
 export default function ReceptionistView({ 
@@ -21,7 +23,9 @@ export default function ReceptionistView({
   onAddPatient, 
   onScanShareRegister,
   onAddAbhaMaster,
-  onRefreshData
+  onRefreshData,
+  sharedPatientId,
+  onSharedPatientIdChange
 }: ReceptionistProps) {
   // Add Patient Form State
   const [showAddForm, setShowAddForm] = useState(false);
@@ -68,6 +72,19 @@ export default function ReceptionistView({
   const [filterGender, setFilterGender] = useState("All");
   const [filterInsurance, setFilterInsurance] = useState("All");
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (sharedPatientId) {
+      setSelectedPatientId(sharedPatientId);
+    }
+  }, [sharedPatientId]);
+
+  const handleSelectPatient = (id: string | null) => {
+    setSelectedPatientId(id);
+    if (id && onSharedPatientIdChange) {
+      onSharedPatientIdChange(id);
+    }
+  };
 
   const checkStatus = async () => {
     const res = await checkSupabaseConnection();
@@ -571,7 +588,7 @@ export default function ReceptionistView({
                             <React.Fragment key={pat.id}>
                               <tr 
                                 className={`hover:bg-indigo-50/20 cursor-pointer transition ${isExpanded ? "bg-indigo-50/30" : ""}`}
-                                onClick={() => setSelectedPatientId(isExpanded ? null : pat.id)}
+                                onClick={() => handleSelectPatient(isExpanded ? null : pat.id)}
                               >
                                 <td className="p-3">
                                   <div>
@@ -690,7 +707,7 @@ export default function ReceptionistView({
                             <React.Fragment key={pat.id}>
                               <tr 
                                 className={`hover:bg-indigo-50/20 cursor-pointer transition ${isExpanded ? "bg-indigo-50/35 border-l-2 border-l-indigo-600 font-medium" : ""}`}
-                                onClick={() => setSelectedPatientId(isExpanded ? null : pat.id)}
+                                onClick={() => handleSelectPatient(isExpanded ? null : pat.id)}
                               >
                                 <td className="p-3 font-mono font-bold text-slate-900">
                                   <span className="bg-slate-100 px-1 py-0.5 border border-slate-200 rounded shadow-3xs">{pat.id}</span>

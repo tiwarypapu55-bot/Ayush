@@ -1950,7 +1950,7 @@ export default function SuperAdminAnalytics({
                         ...prev
                       ]);
                     }}
-                    className="bg-indigo-650 hover:bg-slate-900 text-white text-[11px] py-1.5 px-4 rounded-lg font-bold"
+                    className="bg-indigo-600 hover:bg-slate-900 text-white text-[11px] py-1.5 px-4 rounded-lg font-bold"
                   >
                     Merge MPI Records
                   </button>
