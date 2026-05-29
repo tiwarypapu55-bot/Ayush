@@ -4,9 +4,10 @@
  */
 
 import { useState, useEffect } from "react";
-import { Fingerprint } from "lucide-react";
+import { Fingerprint, BookOpen } from "lucide-react";
 import Navbar from "./components/Navbar";
 import { supabase, mapPatientToDb, mapDbToPatient } from "./supabaseClient";
+import UserManual from "./components/UserManual";
 import ReceptionistView from "./components/ReceptionistView";
 import DoctorView from "./components/DoctorView";
 import NurseView from "./components/NurseView";
@@ -37,6 +38,7 @@ export default function App() {
     }
     return "Receptionist";
   });
+  const [isManualOpen, setIsManualOpen] = useState(false);
 
   const handleLogin = (user: UserSession) => {
     setActiveUser(user);
@@ -558,6 +560,24 @@ export default function App() {
           Complies completely with HL7 FHIR standard v4.0.1, ICD-10 clinical diagnosis guidelines, and CDSCO Schedule protocols.
         </p>
       </footer>
+
+      {/* Floating User Manual Launch Button */}
+      <button
+        onClick={() => setIsManualOpen(true)}
+        className="fixed bottom-6 right-6 z-40 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-extrabold text-xs py-3.5 px-5 rounded-full flex items-center gap-2 shadow-2xl transition-all duration-150 cursor-pointer border border-indigo-500 hover:border-indigo-400 select-none group"
+        title="Open Interactive Desk Handbook"
+      >
+        <BookOpen className="h-4.5 w-4.5 animate-pulse group-hover:scale-110 transition-transform" />
+        <span className="tracking-tight">NHA User Manual & Guide</span>
+      </button>
+
+      {/* Global User Manual Drawer/Overlay Component */}
+      <UserManual 
+        isOpen={isManualOpen} 
+        onClose={() => setIsManualOpen(false)} 
+        activeRole={currentRole} 
+        onSwitchRole={handleRoleChange} 
+      />
     </div>
   );
 }
