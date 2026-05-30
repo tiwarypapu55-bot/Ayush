@@ -63,6 +63,17 @@ export const PRESET_PANELISTS: UserSession[] = [
     authorizedScope: "PM-JAY Claim Pre-Auth, Fraud Analysis, Settlement"
   },
   {
+    id: "multipayer_1",
+    name: "Gautam Singhania",
+    role: "MultiPayer",
+    email: "gautam.singhania@medinex.gov.in",
+    designation: "Multi-Payer Commercial Desk Lead",
+    department: "Corporate Insurance & Premium Services Desk",
+    avatar: "👑",
+    badgeId: "PMC-EXEC-991",
+    authorizedScope: "Flexible Rate Cards, Escrows & Corporate Cover Verification"
+  },
+  {
     id: "lab_1",
     name: "Dr. Devendra Soni",
     role: "LabStaff",

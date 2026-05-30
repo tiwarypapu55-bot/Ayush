@@ -62,7 +62,7 @@ export default function SuperAdminAnalytics({
 }: SuperAdminProps) {
   // Tabs Switcher
   const [activeSubTab, setActiveSubTab] = useState<
-    "executive" | "biometrics" | "govt" | "cyber" | "governance" | "interoperability" | "clinical_ai" | "master_tables"
+    "executive" | "biometrics" | "govt" | "cyber" | "governance" | "interoperability" | "clinical_ai" | "master_tables" | "fraud_suite"
   >("executive");
 
   // Vitals simulation states
@@ -164,6 +164,257 @@ export default function SuperAdminAnalytics({
     { id: 2, type: "Telemetry Alert Notification", patient: "ICU Bed Bed-04", sentVia: "SMS Push", status: "Sent" },
     { id: 3, type: "Claim Disbursement Sync Alert", patient: "NHA central Gateway", sentVia: "Secure Callback", status: "Pending" }
   ]);
+
+  // MANDATORY FRAUD & GOVERNANCE COMPONENT STATES
+  const [activeFraudTab, setActiveFraudTab] = useState<
+    "overview" | "rules" | "ai_anomaly" | "clinical_val" | "package_gov" | "implants" | "audit_cert"
+  >("overview");
+  const [fraudAuditRunCount, setFraudAuditRunCount] = useState(0);
+  const [isAnalyzingFraud, setIsAnalyzingFraud] = useState(false);
+  const [isAnalyzingAi, setIsAnalyzingAi] = useState(false);
+  const [selectedRiskClaimId, setSelectedRiskClaimId] = useState("");
+  const [overallSystemRiskScore, setOverallSystemRiskScore] = useState(38); // starts low/moderate
+
+  const [fraudRules, setFraudRules] = useState([
+    { id: "FR-01", name: "High-Frequency Consultation Cap", desc: "Flags doctors logging > 40 consulting events per day.", limit: 40, unit: "encounters", status: "Active", count: 2 },
+    { id: "FR-02", name: "Post-Discharge Procedure Buffer", desc: "Flags surgical procedures billed within 3 days post-discharge.", limit: 3, unit: "days", status: "Active", count: 1 },
+    { id: "FR-03", name: "Mismatched Demographic Admission", desc: "Rejects claims with gender/age-mismatched clinical diagnosis rules.", limit: 0, unit: "mismatches", status: "Active", count: 1 },
+    { id: "FR-04", name: "Double-Billing Transaction Fingerprint", desc: "Identifies duplicate item descriptions inside a 15-minute window for a single UHID.", limit: 15, unit: "minutes", status: "Active", count: 2 },
+    { id: "FR-05", name: "Implant CDSCO Catalog Discrepancy", desc: "Blocks payments utilizing implants not authenticated with central warehouses.", limit: 0, unit: "violations", status: "Active", count: 1 },
+    { id: "FR-06", name: "Short-Stay Surgical Claim Overlay", desc: "Flags major inpatient packages where real bed stay is < 12 hours.", limit: 12, unit: "hours", status: "Warning", count: 0 },
+    { id: "FR-07", name: "Antibiotic Over-prescription threshold", desc: "Tracks anti-infectives exceeding 300% standard CDSCO guidelines.", limit: 300, unit: "% threshold", status: "Warning", count: 4 }
+  ]);
+
+  const [implantLifecycleList, setImplantLifecycleList] = useState([
+    { id: "IMP-STENT-884029", name: "Coronary Drug-Eluting Stent (Zotarolimus)", cdscoReg: "CDSCO/MD/2024-A9", manufacturer: "Medtronic India Ltd", batch: "B-STENT-902", uhid: "UHID-108291", patientName: "Ramesh Chandra Kumar", status: "In-Situ (Active)", implantedAt: "2026-05-15", cost: 23600, certified: true },
+    { id: "IMP-LENS-390291", name: "Hydrophobic Foldable Intraocular Lens", cdscoReg: "CDSCO/MD/2025-C1", manufacturer: "Alcon India", batch: "B-IOL-404", uhid: "UHID-108295", patientName: "Sunita Devi", status: "In-Situ (Active)", implantedAt: "2026-05-20", cost: 8500, certified: true },
+    { id: "IMP-HIP-993021", name: "Titanium Acetabular Cup Total Hip System", cdscoReg: "CDSCO/MD/2023-F2", manufacturer: "Zimmer Biomet", batch: "B-HIP-501", uhid: "UHID-108304", patientName: "Gurpreet Singh", status: "In-Situ (Active)", implantedAt: "2026-05-24", cost: 67000, certified: true },
+    { id: "IMP-PACER-440212", name: "Dual Chamber IPG Pacemaker System", cdscoReg: "CDSCO/MD/2022-X9", manufacturer: "Abbott Laboratories", batch: "B-PACER-022", uhid: "UHID-108311", patientName: "Dinesh Chandra", status: "Suspected Altered Batch", implantedAt: "2026-05-28", cost: 91000, certified: false }
+  ]);
+
+  const [aiAnomalyLogsState, setAiAnomalyLogsState] = useState([
+    { time: "2026-05-29 11:00:21Z", category: "Dynamic Cluster Alert", msg: "Outlier detected: Clinic CLN-402 submitting eye surgeries for outer-state patients utilizing identical IP subnet block", isolationScore: 0.96 },
+    { time: "2026-05-29 12:35:10Z", category: "Semantic EMR Mismatch", msg: "ICD-10 clinical diagnosis code J18 (Pneumonia) matched with expensive Cardiac Catheterization pack. High lexical divergence in notes.", isolationScore: 0.89 },
+    { time: "2026-05-29 14:45:00Z", category: "Double Billing Signature", msg: "Attending Dr. Roy logged duplicate consultation consultations for UHID-108291 within 15 minutes across two desks.", isolationScore: 0.94 }
+  ]);
+
+  const [clinicalViolationsList, setClinicalViolationsList] = useState([
+    { id: "CV-01", uhid: "UHID-108311", patient: "Dinesh Chandra", mismatch: "Pediatric PM-JAY vaccination bonus claimed for a senior citizen (Age 68).", severity: "High Risk", score: 88 },
+    { id: "CV-02", uhid: "UHID-108295", patient: "Sunita Devi", mismatch: "Intraocular lens implant logged for a primary diagnosis of Cholelithiasis (Gallbladder Stone).", severity: "Critical Fraud", score: 96 },
+    { id: "CV-03", uhid: "UHID-108304", patient: "Gurpreet Singh", mismatch: "Doctor billed a bilateral hip replacement procedure, but EMR x-ray attachment refers only to knee joint arthroscopy.", severity: "Medium Risk", score: 62 }
+  ]);
+
+  const [governedPackages, setGovernedPackages] = useState([
+    { code: "SG-05", name: "Laparoscopic Cholecystectomy", capCost: 22000, maxDays: 3, workflowRequired: "Pre-Auth + Histopathology Record" },
+    { code: "MC-01", name: "General Medicine - Pneumonia Management", capCost: 15000, maxDays: 5, workflowRequired: "Clinical Notes Upload" },
+    { code: "SG-02", name: "Total Hip Arthroplasty (Unilateral)", capCost: 75000, maxDays: 7, workflowRequired: "Pre-Auth + CDSCO Implant Barcode Trace" },
+    { code: "MC-02", name: "Critical Care - ICU Ventilation Management", capCost: 11000, maxDays: 14, workflowRequired: "Arterial Blood Gas Logs Attached" }
+  ]);
+
+  // Implant verification sandbox tool states
+  const [implantSearchId, setImplantSearchId] = useState("");
+  const [implantSearchResult, setImplantSearchResult] = useState<any | null>(null);
+
+  // New Implant creation inputs for Traceability Log
+  const [newImplantId, setNewImplantId] = useState("");
+  const [newImplantName, setNewImplantName] = useState("");
+  const [newImplantCdsco, setNewImplantCdsco] = useState("");
+  const [newImplantManufacturer, setNewImplantManufacturer] = useState("");
+  const [newImplantBatch, setNewImplantBatch] = useState("");
+  const [newImplantUhid, setNewImplantUhid] = useState("");
+  const [newImplantCost, setNewImplantCost] = useState(15000);
+
+  // --- FRAUD CONTROL DASHBOARD STATES ---
+  const [fraudSubDashboard, setFraudSubDashboard] = useState<
+    "claims_audit" | "duplicate_admissions" | "excessive_diagnostics" | "implant_anomalies" | "doctor_risk_index" | "dept_heatmap"
+  >("claims_audit");
+  const [claimDetailsModal, setClaimDetailsModal] = useState<any | null>(null);
+  
+  const [localClaimsState, setLocalClaimsState] = useState<any[]>([]);
+
+  const [duplicateAdmissionsList, setDuplicateAdmissionsList] = useState([
+    {
+      id: "DPA-101",
+      patientId: "UHID-108291",
+      patientName: "Ramesh Chandra Kumar",
+      admission1: { id: "ADM-6502", ward: "Cardiology Semi-Private", doc: "Dr. Arvind Swaminathan", host: "Apex Health Central", period: "May 12 - May 17, 2026" },
+      admission2: { id: "ADM-9014", ward: "General Ward Bed-08", doc: "Dr. Sanjay Mukherji", host: "Apollo Metro Sandbox Hospital", period: "May 14 - May 16, 2026" },
+      overlappingDays: 2,
+      pkgClaim: "CLM-884029",
+      riskLevel: "CRITICAL",
+      status: "Investigating"
+    },
+    {
+      id: "DPA-102",
+      patientId: "UHID-108295",
+      patientName: "Sunita Devi",
+      admission1: { id: "ADM-3204", ward: "Gastroenterology Private", doc: "Dr. Rakesh Roy", host: "Apex Health Central", period: "May 20 - May 22, 2026" },
+      admission2: { id: "ADM-4412", ward: "Ophthalmology ICU", doc: "Dr. Sanjay Mukherji", host: "Apex Health Central", period: "May 21 - May 23, 2026" },
+      overlappingDays: 1,
+      pkgClaim: "CLM-390291",
+      riskLevel: "HIGH RISK",
+      status: "Under Review"
+    },
+    {
+      id: "DPA-103",
+      patientId: "UHID-108304",
+      patientName: "Gurpreet Singh",
+      admission1: { id: "ADM-8802", ward: "Orthopedics General Ward", doc: "Dr. Priyanka Deshmukh", host: "Apex Health Central", period: "May 24 - May 28, 2026" },
+      admission2: { id: "ADM-8898", ward: "Physiotherapy Outpost", doc: "Dr. Sanjay Mukherji", host: "State District Polyclinic", period: "May 24 - May 25, 2026" },
+      overlappingDays: 2,
+      pkgClaim: "CLM-993021",
+      riskLevel: "MEDIUM RISK",
+      status: "Resolved"
+    }
+  ]);
+
+  const [excessiveDiagnosticsList, setExcessiveDiagnosticsList] = useState([
+    {
+      id: "EXD-201",
+      patientId: "UHID-108304",
+      patientName: "Gurpreet Singh",
+      testName: "Ultrasound Whole Abdomen (LOINC 45030-2)",
+      department: "Gastroenterology",
+      runCount: 3,
+      timeWindow: "24 Hours (May 23 - May 24)",
+      costWaste: 12500,
+      riskScore: 82,
+      justified: false,
+      status: "Flagged"
+    },
+    {
+      id: "EXD-202",
+      patientId: "UHID-108311",
+      patientName: "Dinesh Chandra",
+      testName: "Cardiac Troponin I Assay (LOINC 10839-1)",
+      department: "Cardiology",
+      runCount: 4,
+      timeWindow: "12 Hours (May 28)",
+      costWaste: 6400,
+      riskScore: 71,
+      justified: true,
+      status: "Approved-Justified"
+    },
+    {
+      id: "EXD-203",
+      patientId: "UHID-108295",
+      patientName: "Sunita Devi",
+      testName: "MRI Scan Lumbar Spine (Contrast) (LOINC 24902-1)",
+      department: "Radiology / Neurology",
+      runCount: 2,
+      timeWindow: "48 Hours (May 21 - May 23)",
+      costWaste: 38000,
+      riskScore: 94,
+      justified: false,
+      status: "Flagged"
+    }
+  ]);
+
+  const [doctorRiskList, setDoctorRiskList] = useState([
+    {
+      id: "DOC-901",
+      name: "Dr. Sanjay Mukherji",
+      abdmNumber: "HPR-992019-A",
+      specialty: "General Surgery",
+      dailyVisits: 44,
+      riskClaimPercentage: 42,
+      avgRiskScore: 74,
+      violationsCount: 3,
+      status: "Watchlist Alert",
+      reason: "Bypassed 3 surgical buffer timeline limits & high consulting logs."
+    },
+    {
+      id: "DOC-902",
+      name: "Dr. Arvind Swaminathan",
+      abdmNumber: "HPR-440211-X",
+      specialty: "Cardiology",
+      dailyVisits: 18,
+      riskClaimPercentage: 4,
+      avgRiskScore: 12,
+      violationsCount: 0,
+      status: "Unblemished Standard",
+      reason: "Complete photographic biometric authentication matching all procedures."
+    },
+    {
+      id: "DOC-903",
+      name: "Dr. Rakesh Roy",
+      abdmNumber: "HPR-112094-Z",
+      specialty: "Ophthalmology",
+      dailyVisits: 35,
+      riskClaimPercentage: 22,
+      avgRiskScore: 58,
+      violationsCount: 1,
+      status: "Minor Discrepancy Warnings",
+      reason: "Two unverified implant serology codes logged temporarily."
+    },
+    {
+      id: "DOC-904",
+      name: "Dr. Priyanka Deshmukh",
+      abdmNumber: "HPR-304921-W",
+      specialty: "Pediatrics",
+      dailyVisits: 21,
+      riskClaimPercentage: 0,
+      avgRiskScore: 9,
+      violationsCount: 0,
+      status: "Certified Compliant",
+      reason: "Zero demographic discrepancies or unvalidated billing codes logged."
+    }
+  ]);
+
+  const [departmentHeatmapList, setDepartmentHeatmapList] = useState([
+    { code: "CARD", name: "Cardiology Unit", avgRiskScore: 48, claimCount: 14, billedAmount: 345000, colorClass: "bg-amber-100 border-amber-300 text-amber-900 shadow-xs", label: "MODERATE WATCH" },
+    { code: "OPHT", name: "Ophthalmology", avgRiskScore: 82, claimCount: 8, billedAmount: 98000, colorClass: "bg-rose-150 border-rose-400 text-rose-950 shadow-xs", label: "CRITICAL BREACH" },
+    { code: "ORTH", name: "Orthopedic Surgery", avgRiskScore: 54, claimCount: 11, billedAmount: 512000, colorClass: "bg-amber-200 border-amber-400 text-amber-950 shadow-xs", label: "HIGH RISK" },
+    { code: "GSU", name: "General Medicine / Surgery", avgRiskScore: 68, claimCount: 19, billedAmount: 410000, colorClass: "bg-orange-100 border-orange-350 text-orange-950", label: "ELEVATED CONCURRENCE" },
+    { code: "PED", name: "Pediatrics & Nursery", avgRiskScore: 15, claimCount: 22, billedAmount: 180000, colorClass: "bg-emerald-50 border-emerald-250 text-emerald-950", label: "COMPLIANT SAFE" },
+    { code: "ICU", name: "Critical Care / ICU", avgRiskScore: 36, claimCount: 12, billedAmount: 670000, colorClass: "bg-slate-100 border-slate-350 text-slate-900", label: "SURVEILLANCE" }
+  ]);
+
+  // Synchronize local claims list state with incoming claims prop
+  useEffect(() => {
+    if (claims && claims.length > 0 && localClaimsState.length === 0) {
+      const initial = claims.map((cl, index) => {
+        let score = 15;
+        let reasons = ["Patient eligibility checked OK"];
+        let severity: "LOW" | "MEDIUM" | "HIGH" = "LOW";
+        if (cl.packageCost > 60000) { 
+          score = 78; 
+          reasons = ["High value surgical package cost", "Central bank transfer threshold trigger"]; 
+          severity = "HIGH";
+        }
+        if (cl.preAuthStatus === "Queried") { 
+          score = 55; 
+          reasons = ["Hospital requested budget modifications", "Incomplete photographic file attachment"]; 
+          severity = "MEDIUM";
+        }
+        if (cl.id.includes("6") || cl.patientId.includes("D") || cl.patientId.includes("11")) { 
+          score = 91; 
+          reasons = ["CDSCO Implant serial mismatch warning", "Uncertified cardiac stent model identifier"]; 
+          severity = "HIGH";
+        }
+        if (cl.id.includes("1002") || cl.patientId.includes("108311")) {
+          score = 95;
+          reasons = ["Senior citizen (Age 68) billed for Pediatric immunization bonus", "Aadhaar validation warning"];
+          severity = "HIGH";
+        }
+        return {
+          ...cl,
+          riskScore: score,
+          riskReasons: reasons,
+          riskSeverity: severity,
+          auditDecision: "Pending", // Pending, Approved, Flagged, Under-Audit
+          notes: ""
+        };
+      });
+      setLocalClaimsState(initial);
+    }
+  }, [claims]);
+  // --- END OF FRAUD DASHBOARD STATES ---
+
+  // Compliance Cert Inputs
+  const [complianceInspectorName, setComplianceInspectorName] = useState("S. K. Swaminathan (Audit Director)");
+  const [complianceNotes, setComplianceNotes] = useState("All 7 fraud guidelines scanned against live schemas. CDSCO implant databases and PM-JAY package costs are 100% compliant.");
+  const [complianceSaved, setComplianceSaved] = useState(false);
 
   // General executive info
   const occupiedBedsCount = beds.filter(b => b.status === "Occupied").length;
@@ -681,7 +932,7 @@ export default function SuperAdminAnalytics({
       </div>
 
       {/* Primary Sub Tabs Switcher */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-1.5 p-1 bg-slate-100 border rounded-xl" id="superadmin-subtabs">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-1.5 p-1 bg-slate-100 border rounded-xl" id="superadmin-subtabs">
         <button
           onClick={() => setActiveSubTab("executive")}
           className={`py-2 px-2.5 rounded-lg text-xs font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition ${
@@ -744,6 +995,15 @@ export default function SuperAdminAnalytics({
         >
           <Sparkles className="h-3.5 w-3.5 text-purple-500" />
           <span>AI & Portals</span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab("fraud_suite")}
+          className={`py-2 px-2.5 rounded-lg text-xs font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition ${
+            activeSubTab === "fraud_suite" ? "bg-rose-50 text-rose-950 shadow-sm border border-rose-200" : "text-rose-650 hover:text-rose-950"
+          }`}
+        >
+          <ShieldAlert className="h-3.5 w-3.5 text-rose-500 animate-pulse" />
+          <span>Fraud Suite</span>
         </button>
         <button
           onClick={() => setActiveSubTab("master_tables")}
@@ -2127,6 +2387,1934 @@ export default function SuperAdminAnalytics({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeSubTab === "fraud_suite" && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-rose-900 via-slate-900 to-indigo-950 p-6 rounded-2xl border border-rose-950/40 text-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-md">
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[10px] bg-rose-600/90 text-white font-extrabold px-3 py-0.5 rounded-full uppercase tracking-wider border border-rose-500">
+                  National Health Authority • Fraud Control & Security
+                </span>
+                <span className="text-[10px] bg-slate-850 bg-slate-800 text-slate-300 font-mono px-2 py-0.5 rounded-full">
+                  NHA Sect-7 Compliance
+                </span>
+              </div>
+              <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-rose-450 text-rose-500" /> Fraud, Waste &amp; Abuse (FWA) Audit Control Desk
+              </h3>
+              <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                Central regulatory console monitoring cashless claim overruns, demographic validation anomalies, clinical mispairings, unverified implant chains, and rule-based system risk indexes.
+              </p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-2 font-mono shrink-0 select-none">
+              <div className="bg-slate-950/80 p-3 rounded-lg border border-rose-500/10 text-center">
+                <p className="text-[9px] text-slate-400 font-sans uppercase">Audit Score Status</p>
+                <span className="text-emerald-400 text-xs font-black">● COMPLIANT</span>
+              </div>
+              <div className="bg-slate-950/80 p-3 rounded-lg border border-indigo-500/10 text-center">
+                <p className="text-[9px] text-slate-400 font-sans uppercase">Active Risk Level</p>
+                <span className={`text-xs font-black ${overallSystemRiskScore > 70 ? "text-rose-500" : overallSystemRiskScore > 35 ? "text-amber-500 animate-pulse" : "text-emerald-400"}`}>
+                  {overallSystemRiskScore > 70 ? "CRITICAL RISK" : overallSystemRiskScore > 35 ? "MODERATE ALERT" : "SECURED"} ({overallSystemRiskScore}/100)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Core Inner Tab Switcher Panel */}
+          <div className="flex overflow-x-auto gap-1 p-1 bg-slate-100 border rounded-xl select-none scroll-smooth">
+            <button
+              onClick={() => setActiveFraudTab("overview")}
+              className={`px-3 py-1.5 text-[11px] font-black tracking-tight rounded-md whitespace-nowrap transition cursor-pointer ${activeFraudTab === "overview" ? "bg-indigo-600 text-white shadow-3xs" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"}`}
+            >
+              📊 Core Dashboard
+            </button>
+            <button
+              onClick={() => setActiveFraudTab("rules")}
+              className={`px-3 py-1.5 text-[11px] font-black tracking-tight rounded-md whitespace-nowrap transition cursor-pointer ${activeFraudTab === "rules" ? "bg-indigo-600 text-white shadow-3xs" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"}`}
+            >
+              ⚙️ Rule-Based Engine
+            </button>
+            <button
+              onClick={() => setActiveFraudTab("ai_anomaly")}
+              className={`px-3 py-1.5 text-[11px] font-black tracking-tight rounded-md whitespace-nowrap transition cursor-pointer ${activeFraudTab === "ai_anomaly" ? "bg-indigo-600 text-white shadow-3xs" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"}`}
+            >
+              🧠 AI Anomaly Logs
+            </button>
+            <button
+              onClick={() => setActiveFraudTab("clinical_val")}
+              className={`px-3 py-1.5 text-[11px] font-black tracking-tight rounded-md whitespace-nowrap transition cursor-pointer ${activeFraudTab === "clinical_val" ? "bg-indigo-600 text-white shadow-3xs" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"}`}
+            >
+              🩺 Clinical Validation
+            </button>
+            <button
+              onClick={() => setActiveFraudTab("package_gov")}
+              className={`px-3 py-1.5 text-[11px] font-black tracking-tight rounded-md whitespace-nowrap transition cursor-pointer ${activeFraudTab === "package_gov" ? "bg-indigo-600 text-white shadow-3xs" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"}`}
+            >
+              ⚖️ Package Governance
+            </button>
+            <button
+              onClick={() => setActiveFraudTab("implants")}
+              className={`px-3 py-1.5 text-[11px] font-black tracking-tight rounded-md whitespace-nowrap transition cursor-pointer ${activeFraudTab === "implants" ? "bg-indigo-600 text-white shadow-3xs" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"}`}
+            >
+              🧬 Implant Tracking
+            </button>
+            <button
+              onClick={() => setActiveFraudTab("audit_cert")}
+              className={`px-3 py-1.5 text-[11px] font-black tracking-tight rounded-md whitespace-nowrap transition cursor-pointer ${activeFraudTab === "audit_cert" ? "bg-indigo-600 text-white shadow-3xs" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"}`}
+            >
+              📜 Compliance Certificate
+            </button>
+          </div>
+
+          {/* SWITCH VIEW CONTROLLER */}
+          {activeFraudTab === "overview" && (
+            <div className="space-y-6">
+              
+              {/* top level analytics overview cards */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {/* 1. System Threat */}
+                <div className="bg-slate-900 border border-slate-850 p-4 rounded-xl text-white select-none relative overflow-hidden flex flex-col justify-between min-h-[110px] shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wide">Threat Level Index</span>
+                    <Activity className={`h-4 w-4 ${overallSystemRiskScore > 75 ? "text-rose-500 animate-pulse" : "text-amber-400"}`} />
+                  </div>
+                  <div>
+                    <h4 className="text-2xl font-black text-rose-400 tracking-tight">{overallSystemRiskScore}%</h4>
+                    <p className="text-[10px] text-slate-300 font-semibold truncate">
+                      {overallSystemRiskScore > 75 ? "🔴 Active Incident Scope" : overallSystemRiskScore > 40 ? "🟡 Investigation Mode" : "🟢 Baseline Restored"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 2. High-Risk Claims */}
+                <div className="bg-white border rounded-xl p-4 select-none flex flex-col justify-between min-h-[110px] shadow-xs">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wide">High-Risk Claims</span>
+                    <ShieldAlert className="h-4 w-4 text-rose-500" />
+                  </div>
+                  <div>
+                    <h4 className="text-2xl font-black text-slate-950 tracking-tight">
+                      {localClaimsState.filter(c => c.riskScore > 70 && c.auditDecision === "Pending").length}
+                    </h4>
+                    <p className="text-[10px] text-rose-700 font-bold bg-rose-50 border border-rose-100 rounded px-1.5 py-0.5 inline-block mt-1">
+                      ⚠️ Audit Pending
+                    </p>
+                  </div>
+                </div>
+
+                {/* 3. Duplicate Admissions */}
+                <div className="bg-white border rounded-xl p-4 select-none flex flex-col justify-between min-h-[110px] shadow-xs">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wide">Duplicate Admissions</span>
+                    <Layers className="h-4 w-4 text-indigo-500" />
+                  </div>
+                  <div>
+                    <h4 className="text-2xl font-black text-slate-950 tracking-tight">
+                      {duplicateAdmissionsList.filter(d => d.status !== "Resolved").length}
+                    </h4>
+                    <span className="text-[10px] text-indigo-850 font-bold bg-indigo-50 border border-indigo-150 rounded px-1.5 py-0.5 inline-block mt-1">
+                      🗂️ ABDM Dual overlap
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4. Excessive Diagnostics */}
+                <div className="bg-white border rounded-xl p-4 select-none flex flex-col justify-between min-h-[110px] shadow-xs">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wide">Excessive Panels</span>
+                    <HeartPulse className="h-4 w-4 text-cyan-650 text-cyan-550" />
+                  </div>
+                  <div>
+                    <h4 className="text-2xl font-black text-slate-950 tracking-tight">
+                      {excessiveDiagnosticsList.filter(e => !e.justified).length}
+                    </h4>
+                    <span className="text-[10px] text-amber-800 font-bold bg-amber-50 rounded px-1.5 py-0.5 inline-block mt-1">
+                      🚨 Redundant Orders
+                    </span>
+                  </div>
+                </div>
+
+                {/* 5. Implant Anomalies */}
+                <div className="bg-white border rounded-xl p-4 select-none flex flex-col justify-between min-h-[110px] shadow-xs">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wide">CDSCO Violations</span>
+                    <Cpu className="h-4 w-4 text-amber-500 animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="text-2xl font-black text-slate-950 tracking-tight">
+                      {implantLifecycleList.filter(imp => !imp.certified).length}
+                    </h4>
+                    <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 inline-block mt-1 font-bold">
+                      🔴 Validation Breach
+                    </span>
+                  </div>
+                </div>
+
+                {/* 6. Health Integrity Score */}
+                <div className="bg-[#003580] text-white border border-[#002b66] p-4 rounded-xl select-none flex flex-col justify-between min-h-[110px] shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[9px] text-indigo-200 font-extrabold uppercase tracking-wide">National Integrity</span>
+                    <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-2xl font-black tracking-tight text-emerald-300">96.5%</h4>
+                    <p className="text-[9px] text-indigo-100 font-mono">Benchmark Tier: Excellent</p>
+                  </div>
+                </div>
+              </div>
+
+
+              {/* Navigation Selector Row for specialized dashboards */}
+              <div className="bg-slate-50 border p-1 rounded-xl flex flex-wrap gap-1 select-none">
+                <button
+                  onClick={() => setFraudSubDashboard("claims_audit")}
+                  className={`px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    fraudSubDashboard === "claims_audit" ? "bg-white text-slate-950 shadow-xs border border-slate-250" : "text-slate-650 hover:text-slate-950 hover:bg-slate-100"
+                  }`}
+                >
+                  <Eye className="h-3.5 w-3.5 text-indigo-600" />
+                  <span>High-Risk Claims Audit ({localClaimsState.filter(c => c.riskScore > 70).length})</span>
+                </button>
+                
+                <button
+                  onClick={() => setFraudSubDashboard("duplicate_admissions")}
+                  className={`px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    fraudSubDashboard === "duplicate_admissions" ? "bg-white text-slate-950 shadow-xs border border-slate-250" : "text-slate-650 hover:text-slate-950 hover:bg-slate-100"
+                  }`}
+                >
+                  <Layers className="h-3.5 w-3.5 text-rose-500" />
+                  <span>Duplicate Admissions ({duplicateAdmissionsList.length})</span>
+                </button>
+
+                <button
+                  onClick={() => setFraudSubDashboard("excessive_diagnostics")}
+                  className={`px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    fraudSubDashboard === "excessive_diagnostics" ? "bg-white text-slate-950 shadow-xs border border-slate-250" : "text-slate-650 hover:text-slate-950 hover:bg-slate-100"
+                  }`}
+                >
+                  <HeartPulse className="h-3.5 w-3.5 text-amber-500" />
+                  <span>Excessive Diagnostics ({excessiveDiagnosticsList.length})</span>
+                </button>
+
+                <button
+                  onClick={() => setFraudSubDashboard("implant_anomalies")}
+                  className={`px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    fraudSubDashboard === "implant_anomalies" ? "bg-white text-slate-950 shadow-xs border border-slate-250" : "text-slate-650 hover:text-slate-950 hover:bg-slate-100"
+                  }`}
+                >
+                  <Cpu className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>CDSCO Implant Anomalies ({implantLifecycleList.filter(i => !i.certified).length} alerts)</span>
+                </button>
+
+                <button
+                  onClick={() => setFraudSubDashboard("doctor_risk_index")}
+                  className={`px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    fraudSubDashboard === "doctor_risk_index" ? "bg-white text-slate-950 shadow-xs border border-slate-250" : "text-slate-650 hover:text-slate-950 hover:bg-slate-100"
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5 text-cyan-600" />
+                  <span>Doctor Risk Index ({doctorRiskList.filter(d => d.status.includes("Watch")).length} Flagged)</span>
+                </button>
+
+                <button
+                  onClick={() => setFraudSubDashboard("dept_heatmap")}
+                  className={`px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    fraudSubDashboard === "dept_heatmap" ? "bg-white text-slate-950 shadow-xs border border-slate-250" : "text-slate-650 hover:text-slate-950 hover:bg-slate-100"
+                  }`}
+                >
+                  <BarChart2 className="h-3.5 w-3.5 text-purple-650 text-purple-555" />
+                  <span>Dept Fraud Heatmap</span>
+                </button>
+              </div>
+
+
+              {/* INTERACTIVE COMPONENT SWITCHER */}
+
+              {/* VIEW 1: HIGH-RISK CLAIMS AUDIT */}
+              {fraudSubDashboard === "claims_audit" && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Left Column: Claims List */}
+                  <div className="lg:col-span-8 bg-white border rounded-2xl p-5 shadow-xs space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-3 select-none">
+                      <div>
+                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-tight flex items-center gap-1.5">
+                          <Eye className="h-3.5 w-3.5 text-[#003580]" /> Dynamic Risk Assessment Registry
+                        </h4>
+                        <p className="text-[10px] text-slate-500 font-semibold">
+                          Click on any record below to run an itemized micro-audit, check biological files, and dispatch decisions.
+                        </p>
+                      </div>
+                      <span className="text-[9px] bg-emerald-50 border border-emerald-200 text-emerald-800 px-2 py-0.5 rounded font-mono font-bold uppercase shrink-0">
+                        Live DB Auditing Enabled • Real-Time Escrows
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-500 font-bold uppercase text-[9px] tracking-wider border-b">
+                            <th className="p-3">Claim Ref</th>
+                            <th className="p-3">Beneficiary UHID</th>
+                            <th className="p-3">Billed Package</th>
+                            <th className="p-3 text-right">Cost</th>
+                            <th className="p-3 text-center">Threat Index</th>
+                            <th className="p-3 text-center">Audit Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y font-semibold">
+                          {localClaimsState.map((cl) => {
+                            const isHigh = cl.riskScore > 70;
+                            const isMedium = cl.riskScore > 40 && cl.riskScore <= 70;
+
+                            return (
+                              <tr 
+                                key={cl.id} 
+                                className="hover:bg-indigo-50/20 cursor-pointer transition active:bg-indigo-50/50"
+                                onClick={() => setClaimDetailsModal(cl)}
+                              >
+                                <td className="p-3">
+                                  <div className="flex items-center gap-1">
+                                    <span className="font-mono text-[10px] text-slate-900 font-bold">{cl.id}</span>
+                                    {cl.riskScore > 70 && cl.auditDecision === "Pending" && (
+                                      <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-3">
+                                  <span className="block text-slate-800 text-xs font-extrabold">{cl.patientName}</span>
+                                  <span className="text-[9px] text-slate-400 font-mono block">{cl.patientId}</span>
+                                </td>
+                                <td className="p-3 truncate max-w-[180px]">
+                                  <span className="block text-slate-700">{cl.procedureName}</span>
+                                  <span className="text-[9px] text-indigo-700 font-medium font-mono">{cl.procedureCode}</span>
+                                </td>
+                                <td className="p-3 text-right text-slate-900 font-black font-mono">
+                                  ₹{cl.packageCost?.toLocaleString()}
+                                </td>
+                                <td className="p-3 text-center">
+                                  <div className="flex flex-col items-center max-w-[80px] mx-auto">
+                                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                      <div 
+                                        className={`h-full ${isHigh ? "bg-rose-500" : isMedium ? "bg-amber-500" : "bg-emerald-500"}`}
+                                        style={{ width: `${cl.riskScore}%` }}
+                                      />
+                                    </div>
+                                    <span className={`text-[9px] font-bold mt-0.5 ${isHigh ? "text-rose-600" : isMedium ? "text-amber-600" : "text-emerald-600"}`}>
+                                      {cl.riskScore}% {isHigh ? "Critical" : isMedium ? "Warning" : "Safe"}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <span className={`px-2 py-0.5 rounded text-[9.5px] font-extrabold tracking-tight ${
+                                    cl.auditDecision === "Approved" ? "bg-emerald-50 text-emerald-700 border border-emerald-150" :
+                                    cl.auditDecision === "Flagged" ? "bg-rose-50 text-rose-700 border border-rose-150" :
+                                    cl.auditDecision === "Under-Audit" ? "bg-indigo-50 text-indigo-700 border border-indigo-150" :
+                                    "bg-slate-100 text-slate-600 border border-slate-200"
+                                  }`}>
+                                    {cl.auditDecision === "Pending" ? "⏳ Unaudited" : cl.auditDecision}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="bg-rose-50/40 border border-rose-150 p-3 rounded-lg flex items-start gap-2.5 select-none">
+                      <ShieldAlert className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-[10px] font-black text-rose-900 uppercase block">Inspector Manual Guidelines</span>
+                        <p className="text-[10px] text-slate-650 leading-relaxed font-semibold">
+                          Clicking a candidate initializes the Central Health Locker verification bundle. Verify clinical diagnostic notes against scheduled implant barcoding criteria before releasing state reserve payments.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Visual Breakdown Charts */}
+                  <div className="lg:col-span-4 space-y-6">
+                    {/* Risk Indicators Analysis Chart */}
+                    <div className="bg-white border rounded-2xl p-5 shadow-xs space-y-4">
+                      <div className="border-b pb-2 select-none flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Risk Distribution Drivers</span>
+                        <Sliders className="h-3.5 w-3.5 text-slate-400" />
+                      </div>
+                      
+                      <div className="space-y-3 font-semibold text-xs text-slate-705">
+                        <span className="text-[10px] text-slate-400 block font-bold">DRIVER DEVIATION RATIOS:</span>
+                        
+                        {/* Driver 1: Upcoding */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px]">
+                            <span>Cost Inflation &amp; Upcoding</span>
+                            <span className="font-mono text-indigo-700">45% Volume</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-indigo-600 h-full" style={{ width: "45%" }} />
+                          </div>
+                        </div>
+
+                        {/* Driver 2: Concurrent/Duplicate stays */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px]">
+                            <span>Duplicate Admissions Interval</span>
+                            <span className="font-mono text-rose-650">25% Volume</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-rose-500 h-full" style={{ width: "25%" }} />
+                          </div>
+                        </div>
+
+                        {/* Driver 3: Uncertified medical implants */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px]">
+                            <span>CDSCO Implant Catalog Clash</span>
+                            <span className="font-mono text-amber-650">20% Volume</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-amber-500 h-full" style={{ width: "20%" }} />
+                          </div>
+                        </div>
+
+                        {/* Driver 4: Age/demographics clashes */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px]">
+                            <span>Demographic Age-Gender Clashes</span>
+                            <span className="font-mono text-emerald-750">10% Volume</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-emerald-500 h-full" style={{ width: "10%" }} />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 border rounded-xl p-3 text-[10px] space-y-1 select-none text-slate-600">
+                        <span className="font-black text-slate-800 uppercase block">Engine Context</span>
+                        <p className="leading-relaxed">
+                          The National Health Authority (NHA) uses heuristic deep scanning comparing diagnostic ICD codes against biological variables registered on central Patient Health Lockers.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Threat evaluation details panel */}
+                    <div className="bg-gradient-to-br from-indigo-900 to-slate-950 text-white rounded-2xl p-5 shadow-md relative overflow-hidden select-none">
+                      <div className="space-y-3 relative z-10">
+                        <span className="text-[9px] bg-indigo-500/30 text-indigo-200 border border-indigo-400/20 px-2.5 py-0.5 rounded font-bold uppercase">
+                          HEURISTIC THREAT SCANNERS
+                        </span>
+                        <h4 className="font-black text-sm tracking-tight text-white">Dynamic AI Sandbox Rules</h4>
+                        <p className="text-[10.5px] text-slate-300 leading-normal">
+                          The system aggregates CDSCO manufacturer logs, HPR prescribing indexes, and hospital admissions logs to assign an immediate threat indicator before settlement release.
+                        </p>
+                        <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] font-mono">
+                          <span className="text-slate-400">Escrow Release Ratio:</span>
+                          <span className="text-emerald-400 font-bold">12 / 16 Approved</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+
+              {/* VIEW 2: OVERLAPPING DUPLICATE ADMISSIONS */}
+              {fraudSubDashboard === "duplicate_admissions" && (
+                <div className="bg-white border rounded-2xl p-5 space-y-4 shadow-xs">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-3 select-none">
+                    <div>
+                      <h4 className="text-xs font-black text-rose-950 uppercase tracking-tight flex items-center gap-1.5">
+                        <Layers className="h-4 w-4 text-rose-500 animate-pulse" /> Overlapping Hospital Stays (Duplicate Admissions)
+                      </h4>
+                      <p className="text-[10px] text-slate-500 font-semibold">
+                        Identifies cases where identical Patient UHIDs are flagged in active bed slots across concurrent therapeutic intervals, a strict ABDM regulatory breach.
+                      </p>
+                    </div>
+                    <span className="text-[9px] bg-rose-50 border border-rose-200 text-rose-700 px-2 py-0.5 rounded font-mono font-bold uppercase shrink-0">
+                      Duplicate Admission Warning Set
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 font-bold uppercase text-[9px] tracking-wider border-b">
+                          <th className="p-3">Reference ID</th>
+                          <th className="p-3">Beneficiary Account</th>
+                          <th className="p-3">Primary Host Hospital &amp; Bed</th>
+                          <th className="p-3">Conflicting Concurrent Entry</th>
+                          <th className="p-3 text-center">Clash Span</th>
+                          <th className="p-3 text-center">Risk Factor</th>
+                          <th className="p-3 text-right">Audit Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y font-semibold">
+                        {duplicateAdmissionsList.map((d) => (
+                          <tr key={d.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-mono text-[10.5px] font-bold text-slate-900">{d.id}</td>
+                            <td className="p-3">
+                              <span className="block text-slate-800 text-xs font-extrabold">{d.patientName}</span>
+                              <span className="text-[9px] text-slate-400 font-mono block">{d.patientId}</span>
+                            </td>
+                            <td className="p-3 text-[11px]">
+                              <span className="block text-slate-700">{d.admission1.host}</span>
+                              <span className="text-[9.5px] text-indigo-700 font-mono block">{d.admission1.ward} • {d.admission1.doc}</span>
+                              <span className="text-[9px] text-slate-450 text-slate-400 block">{d.admission1.period}</span>
+                            </td>
+                            <td className="p-3 text-[11px] bg-rose-50/20">
+                              <span className="block text-rose-950 font-bold">{d.admission2.host}</span>
+                              <span className="text-[9.5px] text-rose-700 font-mono block">{d.admission2.ward} • {d.admission2.doc}</span>
+                              <span className="text-[9px] text-slate-450 text-slate-400 block">{d.admission2.period}</span>
+                            </td>
+                            <td className="p-3 text-center font-bold font-mono text-slate-800 bg-rose-50/40">
+                              {d.overlappingDays} Overlapping Days
+                            </td>
+                            <td className="p-3 text-center">
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-black ${
+                                d.riskLevel === "CRITICAL" ? "bg-rose-100 text-rose-700 border border-rose-200" :
+                                d.riskLevel === "HIGH RISK" ? "bg-amber-100 text-amber-700 border border-amber-200" :
+                                "bg-slate-100 text-slate-600"
+                              }`}>
+                                {d.riskLevel}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <div className="flex flex-col sm:flex-row justify-end gap-1.5">
+                                {d.status === "Investigating" ? (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setDuplicateAdmissionsList(prev => prev.map(item => item.id === d.id ? { ...item, status: "Resolved", riskLevel: "RESOLVED" } : item));
+                                        alert("Settle and consolidate both patient claims profiles! Escrow holds released.");
+                                      }}
+                                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[9.5px] py-1 px-2.5 rounded cursor-pointer transition select-none"
+                                    >
+                                      Consolidate Claims
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setDuplicateAdmissionsList(prev => prev.map(item => item.id === d.id ? { ...item, status: "Quarantined", riskLevel: "PENALIZED" } : item));
+                                        alert("Claim flagged to National NHA fraud ledger! Penalized audit logged.");
+                                      }}
+                                      className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[9.5px] py-1 px-2.5 rounded cursor-pointer transition select-none"
+                                    >
+                                      Flag Offense
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-150 rounded px-2 py-0.5 select-none">
+                                    ✓ Action Taken: {d.riskLevel}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+
+              {/* VIEW 3: EXCESSIVE DIAGNOSTICS */}
+              {fraudSubDashboard === "excessive_diagnostics" && (
+                <div className="bg-white border rounded-2xl p-5 space-y-4 shadow-xs">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-3 select-none">
+                    <div>
+                      <h4 className="text-xs font-black text-rose-950 uppercase tracking-tight flex items-center gap-1.5">
+                        <HeartPulse className="h-4 w-4 text-[#003580]" /> Excessive &amp; Redundant Clinical Diagnostics Scanner
+                      </h4>
+                      <p className="text-[10px] text-slate-500 font-semibold">
+                        Identifies hospitals submitting repetitive lab or advanced radiological panels on identical UHID profiles within narrow 12 to 48-hour therapeutic windows without documented trauma flags.
+                      </p>
+                    </div>
+                    <span className="text-[9px] bg-slate-100 border text-slate-650 px-2 py-0.5 rounded font-mono font-bold uppercase">
+                      Diagnostic Sweep Status: Live
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 font-bold uppercase text-[9px] tracking-wider border-b">
+                          <th className="p-3">Security ID</th>
+                          <th className="p-3">Patient Beneficiary</th>
+                          <th className="p-3">Flagged Redundant Procedure</th>
+                          <th className="p-3">Repetition Count</th>
+                          <th className="p-3">Temporal window</th>
+                          <th className="p-3 text-right">Potential Billing Waste</th>
+                          <th className="p-3 text-center">Threat Rating</th>
+                          <th className="p-3 text-right">Audit Verdict</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y font-semibold">
+                        {excessiveDiagnosticsList.map((exc) => (
+                          <tr key={exc.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-mono text-[10.5px] font-bold text-slate-900">{exc.id}</td>
+                            <td className="p-3">
+                              <span className="block text-slate-800 text-xs font-extrabold">{exc.patientName}</span>
+                              <span className="text-[9px] text-slate-400 font-mono block">{exc.patientId}</span>
+                            </td>
+                            <td className="p-3 text-[11px] text-slate-700">
+                              <span className="block text-slate-800 font-bold">{exc.testName}</span>
+                              <span className="text-[9px] text-slate-400 font-mono block">Dept: {exc.department}</span>
+                            </td>
+                            <td className="p-3 text-center font-bold">
+                              <span className="text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-full px-2 py-0.5">
+                                {exc.runCount} Runs Recorded
+                              </span>
+                            </td>
+                            <td className="p-3 text-slate-500 text-[11px]">
+                              {exc.timeWindow}
+                            </td>
+                            <td className="p-3 text-right text-slate-800 font-black font-mono">
+                              ₹{exc.costWaste?.toLocaleString()}
+                            </td>
+                            <td className="p-3 text-center">
+                              <span className={`px-2 py-0.5 rounded font-mono text-[10px] ${
+                                exc.riskScore > 80 ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"
+                              }`}>
+                                {exc.riskScore}% Threat
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <div className="flex justify-end gap-1.5">
+                                {exc.status === "Flagged" ? (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setExcessiveDiagnosticsList(prev => prev.map(i => i.id === exc.id ? { ...i, status: "Justified-Dismissed", justified: true } : i));
+                                        alert("Redundancy justified in clinical notes (critical trauma tracking). Risk flagged dismissed.");
+                                      }}
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[9.5px] py-1 px-2.5 rounded cursor-pointer select-none transition"
+                                    >
+                                      Justify &amp; Dismiss
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setExcessiveDiagnosticsList(prev => prev.map(i => i.id === exc.id ? { ...i, status: "Fined-Recovered", justified: false } : i));
+                                        alert("Billing waste identified! Excess diagnostics cost has been logged as a recovery fine on hospital escrow account.");
+                                      }}
+                                      className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[9.5px] py-1 px-2.5 rounded cursor-pointer select-none transition"
+                                    >
+                                      Issue Fine
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${exc.status.includes("Justified") ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-rose-50 text-rose-700 border border-rose-100"}`}>
+                                    {exc.status}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+
+              {/* VIEW 4: CDSCO IMPLANT ANOMALIES */}
+              {fraudSubDashboard === "implant_anomalies" && (
+                <div className="bg-white border rounded-2xl p-5 space-y-4 shadow-xs">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-3 select-none">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-tight flex items-center gap-1.5">
+                        <Cpu className="h-4 w-4 text-emerald-600" /> CDSCO Medical Implant Device Safety Registry
+                      </h4>
+                      <p className="text-[10px] text-slate-500 font-semibold">
+                        Tracks and verifies medical implants logged under PM-JAY packages with CDSCO central manufacturer databases to verify device trace chain legitimacy.
+                      </p>
+                    </div>
+                    <span className="text-[9px] bg-rose-50 border border-rose-150 text-rose-700 px-2.5 py-0.5 rounded font-mono font-bold uppercase shrink-0">
+                      Surveillance Target Active: 1 Clashing Implant Batch
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 font-bold uppercase text-[9px] tracking-wider border-b">
+                          <th className="p-3">Device ID</th>
+                          <th className="p-3">Device Name</th>
+                          <th className="p-3">CDSCO Registry ID</th>
+                          <th className="p-3">Batch Serial</th>
+                          <th className="p-3">Affiliated UHID</th>
+                          <th className="p-3 text-right">Device Cost</th>
+                          <th className="p-3 text-center">CDSCO Safe Code</th>
+                          <th className="p-3 text-right">Audit Action Override</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y font-semibold">
+                        {implantLifecycleList.map((imp) => (
+                          <tr key={imp.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-mono text-[10.5px] font-bold text-slate-950">{imp.id}</td>
+                            <td className="p-3 text-[11px] text-slate-800 font-bold">{imp.name}</td>
+                            <td className="p-3 font-mono text-slate-600">{imp.cdscoReg}</td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${imp.certified ? "bg-slate-100 text-slate-800" : "bg-rose-100 text-rose-800 animate-pulse"}`}>
+                                {imp.batch}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <span className="block text-slate-850">{imp.patientName}</span>
+                              <span className="text-[9px] text-slate-400 font-mono block">{imp.uhid}</span>
+                            </td>
+                            <td className="p-3 text-right text-slate-900 font-black font-mono">
+                              ₹{imp.cost?.toLocaleString()}
+                            </td>
+                            <td className="p-3 text-center">
+                              {imp.certified ? (
+                                <span className="text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-150 inline-block text-[9.5px]">
+                                  ● Certified &amp; Matched
+                                </span>
+                              ) : (
+                                <span className="text-rose-700 font-extrabold bg-rose-50 px-2 py-0.5 rounded border border-rose-150 inline-block text-[9.5px]">
+                                  ⚠ Unverified / Repurposed
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 text-right">
+                              {!imp.certified ? (
+                                <button
+                                  onClick={() => {
+                                    setImplantLifecycleList(prev => prev.map(item => item.id === imp.id ? { ...item, certified: true, status: "In-Situ (Active)" } : item));
+                                    alert("Query dispatched to Medtronic CDSCO database! Certificate validated in escrow.");
+                                  }}
+                                  className="bg-[#003580] hover:bg-indigo-900 text-white font-extrabold text-[9.5px] py-1 px-3 rounded cursor-pointer select-none transition"
+                                >
+                                  Authenticate CDSCO Manual Code
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 font-bold">✓ Secured Integrity Chain</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+
+              {/* VIEW 5: DOCTOR RISK INDEX */}
+              {fraudSubDashboard === "doctor_risk_index" && (
+                <div className="bg-white border rounded-2xl p-5 space-y-4 shadow-xs select-none">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-3">
+                    <div>
+                      <h4 className="text-xs font-black text-[#003580] uppercase tracking-tight flex items-center gap-1.5">
+                        <Users className="h-4 w-4 text-cyan-650" /> Practitioner Regulatory Risk &amp; Compliance Index
+                      </h4>
+                      <p className="text-[10px] text-slate-500 font-semibold">
+                        NHA Central Registry scoring on clinical practitioners based on consultation spikes, surgery-exclusion limits, and uncertified device billing alerts.
+                      </p>
+                    </div>
+                    <span className="text-[9px] bg-indigo-50 border border-indigo-200 text-indigo-700 px-2.5 py-0.5 rounded font-mono font-bold uppercase shrink-0">
+                      HPR Central Audit Tracking Enabled
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 font-bold uppercase text-[9px] tracking-wider border-b">
+                          <th className="p-3">HPR ID</th>
+                          <th className="p-3">Practitioner Details</th>
+                          <th className="p-3">Specialty</th>
+                          <th className="p-3 text-center">Daily OPD Volume</th>
+                          <th className="p-3 text-center">Billed Risk Ratio</th>
+                          <th className="p-3 text-center">Avg Claims Risk Code</th>
+                          <th className="p-3">Integrity Violation Notes</th>
+                          <th className="p-3 text-center">Active Status</th>
+                          <th className="p-3 text-right">Regulatory Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y font-semibold">
+                        {doctorRiskList.map((doc) => {
+                          const isAlert = doc.status.includes("Watch");
+                          const isCompliant = doc.status.includes("Compliant") || doc.status.includes("Standard");
+
+                          return (
+                            <tr key={doc.id} className="hover:bg-slate-50">
+                              <td className="p-3 font-mono text-[10px] text-slate-700">{doc.id}</td>
+                              <td className="p-3">
+                                <span className="block text-slate-900 text-xs font-extrabold">{doc.name}</span>
+                                <span className="text-[9px] text-slate-400 font-mono block">ABDM: {doc.abdmNumber}</span>
+                              </td>
+                              <td className="p-3 text-slate-600">{doc.specialty}</td>
+                              <td className="p-3 text-center font-bold font-mono text-slate-800">{doc.dailyVisits} visits/day</td>
+                              <td className="p-3 text-center font-bold text-rose-650 font-mono">{doc.riskClaimPercentage}% Claims Flagged</td>
+                              <td className="p-3 text-center">
+                                <span className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
+                                  doc.avgRiskScore > 60 ? "bg-rose-50 text-rose-600 border border-rose-150" :
+                                  doc.avgRiskScore > 30 ? "bg-amber-50 text-amber-600 border border-amber-150" :
+                                  "bg-emerald-50 text-emerald-600 border border-emerald-150"
+                                }`}>
+                                  {doc.avgRiskScore}% Risk
+                                </span>
+                              </td>
+                              <td className="p-3 text-[10.5px] text-slate-500 max-w-[200px] leading-snug">
+                                {doc.reason}
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tight ${
+                                  isAlert ? "bg-rose-50 text-rose-700 border border-rose-150" :
+                                  isCompliant ? "bg-emerald-50 text-emerald-700 border border-emerald-150" :
+                                  "bg-amber-50 text-amber-700 border border-amber-150"
+                                }`}>
+                                  {doc.status}
+                                </span>
+                              </td>
+                              <td className="p-3 text-right">
+                                {isAlert ? (
+                                  <button
+                                    onClick={() => {
+                                      setDoctorRiskList(prev => prev.map(item => item.id === doc.id ? { ...item, status: "Under Surveillance", avgRiskScore: 40 } : item));
+                                      alert("Prescription audit locked. All claims of this clinician logged into secondary verification queue.");
+                                    }}
+                                    className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[9.5px] py-1 px-2.5 rounded cursor-pointer select-none transition"
+                                  >
+                                    Enforce Audit Hook
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      alert("Practice profile index validated. Audited historical case notes mapped compliant with NHA registry standards.");
+                                    }}
+                                    className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-[9.5px] py-1 px-2.5 rounded cursor-pointer select-none transition border"
+                                  >
+                                    Verify Dossier
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+
+              {/* VIEW 6: DEPARTMENT FRAUD HEATMAP */}
+              {fraudSubDashboard === "dept_heatmap" && (
+                <div className="bg-white border rounded-2xl p-5 space-y-4 shadow-xs select-none">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-3">
+                    <div>
+                      <h4 className="text-xs font-black text-rose-950 uppercase tracking-tight flex items-center gap-1.5">
+                        <BarChart2 className="h-4 w-4 text-[#003580]" /> Clinical Departmental Risk and Claims Heatmap
+                      </h4>
+                      <p className="text-[10px] text-slate-500 font-semibold">
+                        Aggregates claiming volumes, cumulative billing totals, and active fraud trigger weights across individual clinical specialties.
+                      </p>
+                    </div>
+                    <span className="text-[9px] bg-slate-100 border text-slate-650 px-2 py-0.5 rounded font-mono font-bold uppercase shrink-0">
+                      Heatmap Core: Multi-Factor Weighted
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {departmentHeatmapList.map((dept) => {
+                      const isHigh = dept.avgRiskScore > 65;
+                      const isMedium = dept.avgRiskScore > 35 && dept.avgRiskScore <= 65;
+
+                      return (
+                        <div 
+                          key={dept.code} 
+                          className={`p-5 rounded-2xl border text-slate-900 space-y-3 transition transform hover:-translate-y-0.5 duration-150 hover:shadow-md ${dept.colorClass}`}
+                        >
+                          <div className="flex justify-between items-start border-b border-black/10 pb-2">
+                            <div>
+                              <span className="text-[9.5px] font-mono font-bold block opacity-60 uppercase">{dept.code}</span>
+                              <h5 className="font-extrabold text-base tracking-tight leading-tight">{dept.name}</h5>
+                            </div>
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded ${
+                              isHigh ? "bg-rose-600 text-white" :
+                              isMedium ? "bg-amber-650 text-[#543b00] bg-amber-500/30" :
+                              "bg-emerald-600 text-white"
+                            }`}>
+                              {dept.label}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {/* Score Display */}
+                            <div className="flex justify-between items-baseline text-xs font-semibold">
+                              <span className="opacity-75">Avg Risk Indicator Score</span>
+                              <strong className="text-lg font-black font-mono leading-none">{dept.avgRiskScore}%</strong>
+                            </div>
+
+                            {/* Claims Count Display */}
+                            <div className="flex justify-between text-[11px] font-semibold opacity-85">
+                              <span>Total Monthly Claims Scanned</span>
+                              <span className="font-mono">{dept.claimCount} claims</span>
+                            </div>
+
+                            {/* Cost Billed Volume */}
+                            <div className="flex justify-between text-[11.5px] font-black border-t border-black/5 pt-2">
+                              <span>Audit Claim Exposure</span>
+                              <span className="font-mono text-xs">₹{dept.billedAmount?.toLocaleString()}</span>
+                            </div>
+                          </div>
+
+                          {/* Action Button */}
+                          <div className="pt-1.5">
+                            <button
+                              onClick={() => {
+                                alert(`Initializing deep forensic EMR audit scans for ${dept.name}...\nScanned claims: ${dept.claimCount} files.\nOutcome: Identified suspicious upcoding patterns logged across ${isHigh ? "3" : "0"} orthopedic surgical catalogs.`);
+                              }}
+                              className={`w-full py-1.5 rounded text-[10.5px] font-extrabold tracking-tight transition cursor-pointer select-none border text-center ${
+                                isHigh ? "bg-rose-600 hover:bg-rose-700 text-white border-rose-700" :
+                                isMedium ? "bg-amber-600 hover:bg-amber-750 text-white border-amber-650" :
+                                "bg-white hover:bg-slate-100 text-slate-800 border-slate-350"
+                              }`}
+                            >
+                              Run Deep Forensic Analysis
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+
+              {/* INTERACTIVE POPUP / MICRO-AUDIT DRAWER MODAL FOR CLAIMS */}
+              {claimDetailsModal && (
+                <div 
+                  className="fixed inset-0 bg-slate-950/65 z-50 flex items-center justify-center p-4 backdrop-blur-xs select-none"
+                  id="claim-audit-detail-drawer"
+                >
+                  <div className="bg-white border rounded-2xl shadow-2xl max-w-2xl w-full p-6 space-y-5 relative animate-in fade-in zoom-in-95 duration-100">
+                    <button 
+                      onClick={() => setClaimDetailsModal(null)}
+                      className="absolute top-4 right-4 bg-slate-100 hover:bg-slate-200 text-slate-700 h-6 w-6 rounded-full flex items-center justify-center cursor-pointer font-bold text-xs"
+                    >
+                      ✕
+                    </button>
+
+                    <div className="border-b pb-3 space-y-1">
+                      <span className="text-[10px] bg-rose-50 text-rose-700 font-extrabold px-2.5 py-0.5 rounded font-mono border border-rose-150 inline-block uppercase">
+                        ABDM Secure Audit Sandbox • Case {claimDetailsModal.id}
+                      </span>
+                      <h4 className="text-lg font-black text-slate-950 tracking-tight">
+                        Audit File: {claimDetailsModal.patientName} ({claimDetailsModal.patientId})
+                      </h4>
+                      <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+                        Registered with cash-reimbursable PM-JAY package procedure code <strong className="text-indigo-850 font-semibold">{claimDetailsModal.procedureCode}</strong>.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Left: Metadata */}
+                      <div className="space-y-3 text-xs bg-slate-50 p-3.5 rounded-xl border font-semibold">
+                        <span className="text-[9.5px] font-black text-slate-400 uppercase block tracking-wider">Demographic &amp; Financial Dossier</span>
+                        
+                        <div className="flex justify-between border-b pb-1">
+                          <span className="text-slate-500">Total Billed Cost</span>
+                          <strong className="text-slate-900 font-black font-mono">₹{claimDetailsModal.packageCost?.toLocaleString()}</strong>
+                        </div>
+                        <div className="flex justify-between border-b pb-1">
+                          <span className="text-slate-500">Ayushman Card Number</span>
+                          <strong className="text-slate-900 font-mono text-[10.5px]">{claimDetailsModal.pmjayId || "NHA-9042-X10"}</strong>
+                        </div>
+                        <div className="flex justify-between border-b pb-1">
+                          <span className="text-slate-500">Submission Date Code</span>
+                          <strong className="text-slate-900 font-mono">{claimDetailsModal.submissionDate || "2026-05-28"}</strong>
+                        </div>
+                        <div className="flex justify-between border-b pb-1">
+                          <span className="text-slate-500">Pre-Auth Claim State</span>
+                          <span className="text-emerald-700 font-extrabold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 text-[10px] leading-tight">
+                            {claimDetailsModal.preAuthStatus}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Overall Threat Rating</span>
+                          <strong className="text-rose-650 font-black font-mono text-[13px]">{claimDetailsModal.riskScore}%</strong>
+                        </div>
+                      </div>
+
+                      {/* Right: Triggers */}
+                      <div className="space-y-3">
+                        <span className="text-[9.5px] font-black text-slate-400 uppercase block tracking-wider select-none">Mutilated Custom Trigger Alerts</span>
+                        <div className="space-y-1.5 max-h-[140px] overflow-y-auto">
+                          {claimDetailsModal.riskReasons ? (
+                            claimDetailsModal.riskReasons.map((rsn: string, i: number) => (
+                              <div key={i} className="bg-rose-50 border border-rose-100 p-2 rounded text-[10px] text-rose-950 font-semibold leading-relaxed flex items-start gap-1.5">
+                                <span className="text-rose-500 shrink-0 mt-0.5">●</span>
+                                <span>{rsn}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="bg-emerald-50 text-emerald-800 p-2 rounded text-[10px]">
+                              ● No severe risk indicators matched on first pass heuristic scan.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Change Audit Decision Option Panel */}
+                    <div className="space-y-3 bg-indigo-50/30 border border-indigo-150 p-4 rounded-xl font-semibold">
+                      <span className="text-[10px] font-black text-indigo-950 uppercase block select-none">Auditor Action Console</span>
+                      
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {/* 1. Pending */}
+                        <label className="flex items-center gap-1.5 bg-white border px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-50">
+                          <input 
+                            type="radio" 
+                            name="decision" 
+                            checked={claimDetailsModal.auditDecision === "Pending"} 
+                            onChange={() => setClaimDetailsModal({ ...claimDetailsModal, auditDecision: "Pending" })}
+                            className="cursor-pointer text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span>Keep Unaudited</span>
+                        </label>
+
+                        {/* 2. Approve */}
+                        <label className="flex items-center gap-1.5 bg-white border px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-50 text-emerald-800">
+                          <input 
+                            type="radio" 
+                            name="decision" 
+                            checked={claimDetailsModal.auditDecision === "Approved"} 
+                            onChange={() => setClaimDetailsModal({ ...claimDetailsModal, auditDecision: "Approved" })}
+                            className="cursor-pointer text-emerald-600 focus:ring-emerald-500"
+                          />
+                          <span>Release Escrow Fund (Approve)</span>
+                        </label>
+
+                        {/* 3. Flag */}
+                        <label className="flex items-center gap-1.5 bg-white border px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-50 text-rose-800">
+                          <input 
+                            type="radio" 
+                            name="decision" 
+                            checked={claimDetailsModal.auditDecision === "Flagged"} 
+                            onChange={() => setClaimDetailsModal({ ...claimDetailsModal, auditDecision: "Flagged" })}
+                            className="text-rose-600 focus:ring-rose-500"
+                          />
+                          <span>Quarantine and Penalize (Flag)</span>
+                        </label>
+
+                        {/* 4. Under Audit */}
+                        <label className="flex items-center gap-1.5 bg-white border px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-50 text-indigo-900">
+                          <input 
+                            type="radio" 
+                            name="decision" 
+                            checked={claimDetailsModal.auditDecision === "Under-Audit"} 
+                            onChange={() => setClaimDetailsModal({ ...claimDetailsModal, auditDecision: "Under-Audit" })}
+                            className="text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span>Submit Clinical Query</span>
+                        </label>
+                      </div>
+
+                      {/* Text notes */}
+                      <div className="space-y-1">
+                        <label className="block text-[10px] text-slate-500 uppercase font-extrabold select-none">Auditor Review Statement Notes</label>
+                        <textarea 
+                          value={claimDetailsModal.notes || ""}
+                          onChange={(e) => setClaimDetailsModal({ ...claimDetailsModal, notes: e.target.value })}
+                          placeholder="Type specific EMR discrepancies, photo biometric mismatch details, or justify the clinical exceptions..."
+                          className="w-full bg-white border rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-hidden min-h-[50px] font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Submit Audit Action Button */}
+                    <div className="flex justify-end gap-2 text-xs">
+                      <button 
+                        onClick={() => setClaimDetailsModal(null)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold px-3.5 py-2 rounded-lg cursor-pointer select-none"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setLocalClaimsState(prev => prev.map(cl => cl.id === claimDetailsModal.id ? claimDetailsModal : cl));
+                          // Slightly adjust system risk score depending on action
+                          if (claimDetailsModal.auditDecision === "Approved") {
+                            setOverallSystemRiskScore(prev => Math.max(10, prev - 6));
+                          } else if (claimDetailsModal.auditDecision === "Flagged") {
+                            setOverallSystemRiskScore(prev => Math.min(99, prev + 8));
+                          }
+                          setClaimDetailsModal(null);
+                          alert("Clinical audit finalized securely! Local escrow parameters synchronized.");
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold px-4 py-2 rounded-lg cursor-pointer shadow-sm select-none transition"
+                      >
+                        Save Audit Status Code
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
+
+          {activeFraudTab === "rules" && (
+            <div className="space-y-6">
+              {/* Header Details */}
+              <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b pb-3 select-none">
+                  <div>
+                    <h4 className="text-xs font-black text-indigo-950 uppercase tracking-tight flex items-center gap-1">
+                      ⚙️ Rule-Based Anti-Fraud Engine Control Center
+                    </h4>
+                    <p className="text-[10px] text-slate-500 font-semibold">
+                      Customize local operational boundaries. Toggled rules are re-evaluated live matching hospital transaction records.
+                    </p>
+                  </div>
+                  
+                  <button
+                    onClick={() => {
+                      setIsAnalyzingFraud(true);
+                      setTimeout(() => {
+                        setIsAnalyzingFraud(false);
+                        setFraudAuditRunCount(p => p + 1);
+                        setOverallSystemRiskScore(Math.floor(25 + Math.random() * 20));
+                        alert("Rule-Engine Re-evaluation complete!\nLive records scanned: 25\nRule alterations deployed: Yes\nSystem Risk Level Adjusted.");
+                      }, 1200);
+                    }}
+                    disabled={isAnalyzingFraud}
+                    className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition active:scale-95 disabled:bg-slate-300 cursor-pointer select-none"
+                  >
+                    {isAnalyzingFraud ? (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        Scanning Database...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-3.5 w-3.5" />
+                        Run Live DB Rule Audit Scan
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 select-none">
+                  <div className="bg-slate-50 p-4 rounded-xl border space-y-3">
+                    <span className="text-[10.5px] font-black text-[#003580] uppercase block border-b pb-1">
+                      🔧 Advanced Engine Configurations
+                    </span>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                          Max Consultations Cap per Practitioner (Daily)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min="20"
+                            max="60"
+                            value={fraudRules[0].limit}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              setFraudRules(prev => prev.map(r => r.id === "FR-01" ? { ...r, limit: val } : r));
+                            }}
+                            className="w-full"
+                          />
+                          <span className="font-mono text-xs font-bold text-slate-800 bg-white border px-2 py-0.5 rounded leading-none shrink-0 border-slate-200">
+                            {fraudRules[0].limit} visits
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                          Post-Discharge Procedure Exclusion Buffer
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min="1"
+                            max="7"
+                            value={fraudRules[1].limit}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              setFraudRules(prev => prev.map(r => r.id === "FR-02" ? { ...r, limit: val } : r));
+                            }}
+                            className="w-full"
+                          />
+                          <span className="font-mono text-xs font-bold text-slate-800 bg-white border px-2 py-0.5 rounded leading-none shrink-0 border-slate-200">
+                            {fraudRules[1].limit} days
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                          Antibiotic Threshold Limit (Schedule H1 Volume)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min="100"
+                            max="400"
+                            step="50"
+                            value={fraudRules[6].limit}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              setFraudRules(prev => prev.map(r => r.id === "FR-07" ? { ...r, limit: val } : r));
+                            }}
+                            className="w-full"
+                          />
+                          <span className="font-mono text-xs font-bold text-slate-800 bg-white border px-2 py-0.5 rounded leading-none shrink-0 border-slate-200">
+                            {fraudRules[6].limit}% Guideline
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-indigo-950/5 p-4 rounded-xl border border-indigo-100 flex flex-col justify-between">
+                    <div className="space-y-1.5">
+                      <span className="text-[10.5px] font-black text-indigo-905 text-indigo-900 uppercase block">
+                        🛡️ Engine Enforcement Directives
+                      </span>
+                      <p className="text-xs text-slate-600 leading-relaxed font-semibold">
+                        When a rule triggers, the sandbox isolates the submission immediately:
+                      </p>
+                      <ul className="text-[11px] text-slate-500 font-mono space-y-1 pl-1">
+                        <li>• Hard rejection applied to FR-03, FR-05 modules.</li>
+                        <li>• Yellow pending flags dispatched to FR-01, FR-02 cases.</li>
+                        <li>• System integrity log dispatched with Attending Practitioner details.</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="bg-white border rounded p-2.5 flex items-center justify-between text-[10.5px]">
+                      <span className="font-mono font-bold text-slate-500">Integrity Signature:</span>
+                      <span className="font-mono font-black text-[#003580]">HMAC-SHA256-OK</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rules Toggles Table */}
+                <div className="overflow-x-auto text-xs">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-500 font-bold uppercase text-[9px] tracking-wider border-b">
+                        <th className="p-3">Rule Reference</th>
+                        <th className="p-3">Audit Rule Objective &amp; Details</th>
+                        <th className="p-3">Enrolled Limit</th>
+                        <th className="p-3">Triggers Mapped</th>
+                        <th className="p-3 text-center">Status Toggle</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-semibold">
+                      {fraudRules.map((ru) => (
+                        <tr key={ru.id} className="hover:bg-slate-50">
+                          <td className="p-3 font-mono font-bold text-[#003580]">{ru.id}</td>
+                          <td className="p-3 max-w-sm">
+                            <span className="block text-slate-900 font-extrabold">{ru.name}</span>
+                            <span className="text-[10px] text-slate-450 text-slate-500 leading-normal block font-medium mt-0.5">{ru.desc}</span>
+                          </td>
+                          <td className="p-3 font-mono text-slate-705">
+                            {ru.limit} <span className="text-[10px] text-slate-400 font-sans">{ru.unit}</span>
+                          </td>
+                          <td className="p-3 font-mono text-center">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${ru.count > 0 ? "bg-amber-100 text-amber-800" : "bg-emerald-50 text-emerald-700"}`}>
+                              {ru.count} Flags
+                            </span>
+                          </td>
+                          <td className="p-3 text-center">
+                            <select
+                              value={ru.status}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setFraudRules(prev => prev.map(r => r.id === ru.id ? { ...r, status: val } : r));
+                              }}
+                              className="bg-white border rounded px-2.5 py-1 text-[11px] font-bold text-slate-750 focus:outline-hidden hover:border-slate-355 cursor-pointer leading-none"
+                            >
+                              <option value="Active">🟢 Active Enforcement</option>
+                              <option value="Warning">🟡 Warning Warning Only</option>
+                              <option value="Suppressed">⚪ Suppressed Off</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeFraudTab === "ai_anomaly" && (
+            <div className="space-y-6">
+              {/* AI Anomaly Panel */}
+              <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b pb-3 select-none">
+                  <div>
+                    <h4 className="text-xs font-black text-indigo-950 uppercase tracking-tight flex items-center gap-1">
+                      <Sparkles className="h-4 w-4 text-purple-600 animate-pulse" /> Unsupervised Cognitive AI Anomaly Detector
+                    </h4>
+                    <p className="text-[10px] text-slate-500 font-semibold">
+                      Deep learning vectors isolating high-dimensional EMR and claim discrepancies using density metrics.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setIsAnalyzingAi(true);
+                      setTimeout(() => {
+                        setIsAnalyzingAi(false);
+                        const seed = {
+                          time: new Date().toISOString().replace("T", " ").substring(0, 19) + "Z",
+                          category: "Cognitive Vector Alert",
+                          msg: "Isolation score exceeded threshold (0.91): Attending Dr. Sharma submitted overlapping claims for cardiac rehabilitation exercises totaling ₹95,000 for Patient " + (patients[0]?.name || "Ramesh"),
+                          isolationScore: 0.92
+                        };
+                        setAiAnomalyLogsState(prev => [seed, ...prev]);
+                        setOverallSystemRiskScore(p => Math.min(100, p + 8));
+                      }, 1500);
+                    }}
+                    disabled={isAnalyzingAi}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition active:scale-95 disabled:bg-slate-300 cursor-pointer select-none"
+                  >
+                    {isAnalyzingAi ? (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        Generating Clustering Projections...
+                      </>
+                    ) : (
+                      <>
+                        <Cpu className="h-3.5 w-3.5 animate-pulse" />
+                        Trigger Deep AI Isolation Forest Scan
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Simulated Scatter Telemetry Map */}
+                <div className="bg-slate-900 border text-slate-100 p-5 rounded-xl space-y-3 select-none">
+                  <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
+                    <span>2D Vector Space Projection (PCA Dimensionality Reduction)</span>
+                    <span className="text-emerald-400">Stable Clustering Engine Online</span>
+                  </div>
+                  
+                  <div className="h-36 bg-slate-950/80 border border-slate-800 rounded-lg relative flex items-center justify-center overflow-hidden">
+                    {/* Simulated plot points rendering */}
+                    <div className="absolute left-[20%] top-[40%] h-2.5 w-2.5 rounded-full bg-indigo-500 animate-ping"></div>
+                    <div className="absolute left-[20%] top-[40%] h-2 w-2 rounded-full bg-indigo-600"></div>
+                    
+                    <div className="absolute left-[45%] top-[70%] h-2 w-2 rounded-full bg-indigo-600"></div>
+                    <div className="absolute left-[65%] top-[25%] h-2 w-2 rounded-full bg-indigo-600"></div>
+                    <div className="absolute left-[15%] top-[80%] h-2 w-2 rounded-full bg-indigo-600"></div>
+                    <div className="absolute left-[80%] top-[60%] h-2 w-2 rounded-full bg-indigo-600"></div>
+                    
+                    {/* Outlier Points */}
+                    <div className="absolute right-[15%] top-[20%] h-3.5 w-3.5 rounded-full bg-rose-500/30 animate-pulse flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-rose-500"></div>
+                    </div>
+                    <div className="absolute right-[12%] top-[22%] text-[9px] font-bold font-mono text-rose-450 text-rose-400">
+                      Anomaly Vector-891
+                    </div>
+
+                    <div className="absolute right-[30%] top-[85%] h-3.5 w-3.5 rounded-full bg-rose-500/30 animate-pulse flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-rose-500"></div>
+                    </div>
+                    <div className="absolute right-[27%] top-[87%] text-[9px] font-bold font-mono text-rose-450 text-rose-400">
+                      Upcoding Cluster-2
+                    </div>
+
+                    <span className="text-[11px] text-slate-500 font-mono text-center">
+                      Dense centers depict compliant claims. Scatter points on periphery indicate outlying data.
+                    </span>
+                  </div>
+                </div>
+
+                {/* AI Log List */}
+                <div className="space-y-3">
+                  <span className="text-[10px] font-black text-slate-400 block uppercase tracking-wider">
+                    📝 Cognitive Deep Scan Real-Time Alert Log
+                  </span>
+                  
+                  <div className="space-y-2 max-h-72 overflow-y-auto style-scroll">
+                    {aiAnomalyLogsState.map((log, idx) => (
+                      <div key={idx} className="p-3 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-150 transition-colors flex items-start justify-between gap-3 text-xs leading-relaxed font-semibold">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200 px-1.5 rounded-md">
+                              {log.category}
+                            </span>
+                            <span className="text-[9.5px] text-slate-400 font-mono font-medium">
+                              {log.time}
+                            </span>
+                          </div>
+                          <p className="text-slate-700 font-medium leading-relaxed">
+                            {log.msg}
+                          </p>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="text-[11px] font-mono font-black text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded block">
+                            Score: {log.isolationScore}
+                          </span>
+                          <span className="text-[8.5px] text-slate-400 block font-bold uppercase mt-1">
+                            outlier index
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeFraudTab === "clinical_val" && (
+            <div className="space-y-6">
+              {/* Clinical Validation Engine Panel */}
+              <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="border-b pb-3 select-none">
+                  <h4 className="text-xs font-black text-indigo-950 uppercase tracking-tight flex items-center gap-1">
+                    🩺 Clinical Validation Engine &amp; Coding Audits
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-semibold">
+                    Automatic clinical coding validation verifying match between clinical ICD diagnoses, inpatient admissions records, and billing package specifications.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 select-none">
+                  <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-150 text-center space-y-1 shadow-3xs">
+                    <span className="text-emerald-700 font-black text-xl">100%</span>
+                    <strong className="text-slate-800 text-xs block font-bold">Standard ICD-10 Mapped</strong>
+                    <p className="text-[10px] text-slate-500 leading-normal font-medium max-w-xs mx-auto">
+                      All consultation diagnoses are mapped to official WHO ICD coding registers to block custom code fabrication.
+                    </p>
+                  </div>
+                  <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-150 text-center space-y-1 shadow-3xs">
+                    <span className="text-indigo-705 text-indigo-700 font-black text-xl">CDSCO</span>
+                    <strong className="text-slate-800 text-xs block font-bold">Implant Registration Check</strong>
+                    <p className="text-[10px] text-slate-500 leading-normal font-medium max-w-xs mx-auto">
+                      All orthopaedic, ophthalmic, and cardiac implants are certified against CDSCO manufacturing batches.
+                    </p>
+                  </div>
+                  <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-250 text-center space-y-1 shadow-3xs">
+                    <span className="text-amber-805 text-amber-800 font-black text-xl">{clinicalViolationsList.length} Items</span>
+                    <strong className="text-slate-800 text-xs block font-bold">Discrepancies Found</strong>
+                    <p className="text-[10px] text-slate-500 leading-normal font-medium max-w-xs mx-auto">
+                      Active diagnostic check flags discrepant medical package associations. Immediate review recommended.
+                    </p>
+                  </div>
+                </div>
+
+                {/* List of active clinical violations */}
+                <div className="space-y-3">
+                  <span className="text-[10.5px] font-black text-slate-400 block uppercase tracking-wider select-none">
+                    ⚠️ Active Clinical Integration Discrepancy Warnings
+                  </span>
+
+                  <div className="space-y-2.5">
+                    {clinicalViolationsList.map((cv) => (
+                      <div key={cv.id} className="p-4 bg-white hover:bg-slate-50/30 border border-slate-200 rounded-xl shadow-3xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 select-none">
+                            <span className="text-[9px] font-mono font-bold bg-slate-100 border text-slate-650 px-1.5 rounded-md">
+                              {cv.id}
+                            </span>
+                            <span className="text-slate-900 font-black text-xs">
+                              Patient: {cv.patient} ({cv.uhid})
+                            </span>
+                            <span className="text-[9px] font-mono font-bold bg-rose-50 text-rose-700 border border-rose-150 px-2 rounded-md">
+                              {cv.severity}
+                            </span>
+                          </div>
+                          
+                          <p className="text-xs text-slate-650 font-semibold leading-relaxed">
+                            <strong className="text-rose-700">Violation:</strong> {cv.mismatch}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0 select-none">
+                          <div className="text-right">
+                            <span className="text-[11px] font-mono font-black text-slate-800 block">
+                              Maturity Score: {cv.score}/100
+                            </span>
+                            <span className="text-[8.5px] text-slate-400 block font-bold uppercase mt-0.5">
+                              mismatch severity
+                            </span>
+                          </div>
+                          
+                          <button
+                            onClick={() => {
+                              setClinicalViolationsList(prev => prev.filter(item => item.id !== cv.id));
+                              setOverallSystemRiskScore(p => Math.max(0, p - 5));
+                              alert("Clinical discrepancy dismissed! Recalculating system threat thresholds.");
+                            }}
+                            className="bg-slate-100 hover:bg-slate-200 border text-slate-700 font-extrabold text-[10px] px-2.5 py-1.5 rounded-lg transition cursor-pointer"
+                          >
+                            Mark Handled
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {clinicalViolationsList.length === 0 && (
+                      <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed select-none">
+                        <span className="text-xs text-slate-450 text-slate-500 font-bold block">No active clinical validation errors. Perfect EMR synchronization.</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeFraudTab === "package_gov" && (
+            <div className="space-y-6">
+              {/* Package Governance panel */}
+              <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="border-b pb-3 select-none">
+                  <h4 className="text-xs font-black text-indigo-950 uppercase tracking-tight flex items-center gap-1">
+                    ⚖️ NHA PM-JAY Package Governance &amp; Limit Checks
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-semibold">
+                    Ensuring strict financial caps, mandatory pre-auth guidelines, and max hospital stay metrics mapped to active package indexes.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  {/* Left checklist catalog */}
+                  <div className="lg:col-span-7 space-y-3">
+                    <span className="text-[10px] font-black text-slate-400 block uppercase tracking-wider select-none">
+                      Approved Registry Package Cost Ceilings
+                    </span>
+                    <div className="divide-y border rounded-xl overflow-hidden shadow-3xs font-semibold">
+                      {governedPackages.map((gp) => (
+                        <div key={gp.code} className="p-3 bg-white hover:bg-slate-50 flex justify-between items-center text-xs gap-3">
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] font-mono font-bold bg-indigo-50 text-indigo-805 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-150">
+                              {gp.code}
+                            </span>
+                            <span className="text-slate-800 font-bold block mt-1">{gp.name}</span>
+                            <span className="text-[10px] text-slate-400 block font-semibold leading-none">Workflow: {gp.workflowRequired}</span>
+                          </div>
+
+                          <div className="text-right font-mono select-none">
+                            <span className="text-xs font-black text-slate-900 block">₹{gp.capCost.toLocaleString()}</span>
+                            <span className="text-[9px] text-slate-400 font-sans font-bold block">Max: {gp.maxDays} Bed Days</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Right package validator sandbox tool */}
+                  <div className="lg:col-span-5 bg-slate-50 p-4.5 rounded-2xl border space-y-4 shadow-3xs">
+                    <span className="text-[10.5px] font-black text-[#003580] uppercase block select-none">
+                      🔍 Instant Claims Package Cost Audit Simulator
+                    </span>
+
+                    <div className="space-y-3 text-xs">
+                      <div>
+                        <label className="block text-[10.5px] text-slate-655 text-slate-600 font-bold mb-1">Target Package Code</label>
+                        <select
+                          id="pkg-gov-selector"
+                          className="w-full bg-white border rounded-lg p-2.5 font-bold focus:outline-hidden text-slate-800"
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            // Reset test outcome
+                            const found = governedPackages.find(p => p.code === val);
+                            if (found) {
+                              setComplianceNotes(`Verifying against baseline limits for ${found.name}.`);
+                            }
+                          }}
+                        >
+                          {governedPackages.map((gp) => (
+                            <option key={gp.code} value={gp.code}>
+                              [{gp.code}] - {gp.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10.5px] text-slate-655 text-slate-600 font-bold mb-1">Proposed Cost (₹)</label>
+                          <input
+                            type="number"
+                            id="pkg-gov-cost"
+                            defaultValue={20000}
+                            placeholder="Enter amount to verify"
+                            className="w-full bg-white border rounded-lg p-2 font-mono font-bold text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10.5px] text-slate-655 text-slate-600 font-bold mb-1">Stay Duration (Days)</label>
+                          <input
+                            type="number"
+                            id="pkg-gov-days"
+                            defaultValue={3}
+                            placeholder="Days in bed"
+                            className="w-full bg-white border rounded-lg p-2 font-mono font-bold text-slate-800"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          const code = (document.getElementById("pkg-gov-selector") as HTMLSelectElement)?.value || "SG-05";
+                          const proposedCost = parseInt((document.getElementById("pkg-gov-cost") as HTMLInputElement)?.value || "0");
+                          const proposedDays = parseInt((document.getElementById("pkg-gov-days") as HTMLInputElement)?.value || "0");
+                          
+                          const targetObj = governedPackages.find(p => p.code === code);
+                          if (targetObj) {
+                            if (proposedCost > targetObj.capCost) {
+                              alert(`🛑 GOVERNANCE REJECTION:\nProposed claim value ₹${proposedCost} surpasses NHA Registry Cost cap of ₹${targetObj.capCost} for package code [${code}]!\nRefund or adjust claim down.`);
+                              setOverallSystemRiskScore(p => Math.min(100, p + 10));
+                            } else if (proposedDays > targetObj.maxDays) {
+                              alert(`⚠️ REGULATORY ALIGNMENT WARNING:\nBilled stay (${proposedDays} days) exceeds specified NHA limit (${targetObj.maxDays} days).\nMandatory ward utilization notes required.`);
+                              setOverallSystemRiskScore(p => Math.min(100, p + 5));
+                            } else {
+                              alert(`✅ VERIFICATION PASSED:\nBilled parameters compliant with baseline NHA Package registry criteria.`);
+                              setOverallSystemRiskScore(p => Math.max(0, p - 6));
+                            }
+                          }
+                        }}
+                        className="w-full bg-[#003580] hover:bg-[#002b66] text-white font-extrabold text-xs py-2.5 rounded-lg shadow-sm transition active:scale-95 cursor-pointer text-center select-none"
+                      >
+                        Run Package Limit Compliance Check
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeFraudTab === "implants" && (
+            <div className="space-y-6">
+              {/* Implant lifecycle tracking panel */}
+              <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="border-b pb-3 select-none">
+                  <h4 className="text-xs font-black text-indigo-950 uppercase tracking-tight flex items-center gap-1">
+                    🧬 Permanent Implant Traceability Registry (CDSCO)
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-semibold">
+                    Tracks full procurement-to-recipient pipeline for permanent cardiac stents, hip joints, and intraocular lenses to eliminate counterfeit supply layers.
+                  </p>
+                </div>
+
+                {/* Implant registry search & add-new grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 select-none">
+                  {/* CDSCO Tracker lookup tool */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-3xs space-y-3.5">
+                    <span className="text-[10.5px] font-black text-indigo-905 text-indigo-900 uppercase block">
+                      🔎 Live CDSCO Registry Serial Authentication
+                    </span>
+
+                    <div className="space-y-2 text-xs flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Type Implant Serial ... (e.g. IMP-LENS-390291)"
+                        value={implantSearchId}
+                        onChange={(e) => setImplantSearchId(e.target.value)}
+                        className="flex-1 bg-white border rounded-lg p-2 font-mono font-bold text-slate-800 focus:outline-hidden"
+                      />
+                      <button
+                        onClick={() => {
+                          const found = implantLifecycleList.find(rec => rec.id.toLowerCase() === implantSearchId.trim().toLowerCase());
+                          if (found) {
+                            setImplantSearchResult(found);
+                          } else {
+                            setImplantSearchResult({
+                              error: true,
+                              id: implantSearchId,
+                              msg: "WARNING: Implant Serial Number not discovered inside national warehouse ledger or certified customs list. Highly suspected black-market supply."
+                            });
+                          }
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-4 rounded-lg transition active:scale-95 cursor-pointer leading-none"
+                      >
+                        Verify API
+                      </button>
+                    </div>
+
+                    {implantSearchResult && (
+                      <div className="p-3 bg-white border rounded-lg space-y-2 font-semibold">
+                        {implantSearchResult.error ? (
+                          <div className="p-2 border border-rose-200 bg-rose-50 rounded-lg text-rose-800 text-[11px] leading-relaxed">
+                            <strong>{implantSearchResult.msg}</strong>
+                            <span className="block mt-1 font-mono text-[9px] text-rose-500">Hash Checksum Error • Action Initiated</span>
+                          </div>
+                        ) : (
+                          <div className="text-[11px] space-y-1.5 text-slate-700 font-mono">
+                            <span className="text-emerald-700 font-black flex items-center gap-1 text-[10.5px] uppercase font-sans mb-1">
+                              ✓ Certified authentic NHA CDSCO Implant Record
+                            </span>
+                            <div>• Device Name: <span className="font-bold text-slate-900">{implantSearchResult.name}</span></div>
+                            <div>• Batch/Reg: <span className="text-slate-800">{implantSearchResult.batch} / {implantSearchResult.cdscoReg}</span></div>
+                            <div>• Importer: <span className="text-slate-850">{implantSearchResult.manufacturer}</span></div>
+                            <div>• Recipient Name: <span className="text-slate-900 font-bold">{implantSearchResult.patientName} ({implantSearchResult.uhid})</span></div>
+                            <div>• Lifecycle Status: <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-sans text-[9px] font-bold uppercase">{implantSearchResult.status}</span></div>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => setImplantSearchResult(null)}
+                          className="text-[10px] text-slate-450 text-slate-400 font-bold hover:underline"
+                        >
+                          Clear lookup
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Add Consumable Implant Register form */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-205 shadow-3xs space-y-3">
+                    <span className="text-[10.5px] font-black text-slate-800 uppercase block">
+                      📥 Log Certified Implant Recipient Mapping
+                    </span>
+                    
+                    <div className="grid grid-cols-2 gap-2.5 text-[10.5px]">
+                      <div>
+                        <label className="block text-slate-500 mb-0.5">Device Serial ID</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. IMP-PACER-552"
+                          value={newImplantId}
+                          onChange={(e) => setNewImplantId(e.target.value)}
+                          className="w-full bg-white border rounded p-1.5 font-bold font-mono focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-500 mb-0.5">Device Model Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Polyethylene Joint"
+                          value={newImplantName}
+                          onChange={(e) => setNewImplantName(e.target.value)}
+                          className="w-full bg-white border rounded p-1.5 font-bold focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-500 mb-0.5">CDSCO Reg Stamp</label>
+                        <input
+                          type="text"
+                          placeholder="CDSCO/MD/2026-X1"
+                          value={newImplantCdsco}
+                          onChange={(e) => setNewImplantCdsco(e.target.value)}
+                          className="w-full bg-white border rounded p-1.5 font-bold font-mono focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-500 mb-0.5">Recipient UHID</label>
+                        <input
+                          type="text"
+                          placeholder="UHID-108291"
+                          value={newImplantUhid}
+                          onChange={(e) => setNewImplantUhid(e.target.value)}
+                          className="w-full bg-white border rounded p-1.5 font-bold font-mono focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        if (!newImplantId || !newImplantName || !newImplantUhid) {
+                          alert("Ensure Device Serial, Name, and Recipient UHID parameters are logged.");
+                          return;
+                        }
+                        
+                        const entry = {
+                          id: newImplantId,
+                          name: newImplantName,
+                          cdscoReg: newImplantCdsco || "CDSCO/MD/2026-T9",
+                          manufacturer: newImplantManufacturer || "Authorized NHA Local Vendor",
+                          batch: newImplantBatch || "B-IMPLANT-NEW",
+                          uhid: newImplantUhid,
+                          patientName: "Active Admitted Citizen",
+                          status: "In-Situ (Active)",
+                          implantedAt: new Date().toISOString().substring(0, 10),
+                          cost: newImplantCost || 12000,
+                          certified: true
+                        };
+
+                        setImplantLifecycleList(prev => [...prev, entry]);
+                        setNewImplantId("");
+                        setNewImplantName("");
+                        setNewImplantUhid("");
+                        alert("Certified Implant successfully synced into decentralized warehouse registry ledger.");
+                      }}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] py-1.5 px-3 rounded-lg transition text-center cursor-pointer"
+                    >
+                      Enforce Mapping Sign-Off
+                    </button>
+                  </div>
+                </div>
+
+                {/* Database Table layout of register */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-black text-slate-400 block uppercase tracking-wider select-none">
+                    📋 Active Permanent Recipient Traceability Ledger
+                  </span>
+
+                  <div className="overflow-x-auto text-[11px]">
+                    <table className="w-full text-left border-collapse font-medium">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 font-bold uppercase text-[9px] tracking-wider border-b">
+                          <th className="p-2.5">Serial Reference</th>
+                          <th className="p-2.5">Implant Device</th>
+                          <th className="p-2.5">CDSCO Reg Token</th>
+                          <th className="p-2.5">Recipient Citizen (UHID)</th>
+                          <th className="p-2.5">Implant Date</th>
+                          <th className="p-2.5">Regulatory License</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y text-slate-700 font-semibold font-mono">
+                        {implantLifecycleList.map((imp) => (
+                          <tr key={imp.id} className="hover:bg-slate-50/50">
+                            <td className="p-2.5 font-bold text-slate-900">{imp.id}</td>
+                            <td className="p-2.5 font-sans">
+                              <span className="block text-slate-800 font-bold">{imp.name}</span>
+                              <span className="text-[9px] text-slate-400 select-none">{imp.manufacturer} • Batch {imp.batch}</span>
+                            </td>
+                            <td className="p-2.5">{imp.cdscoReg}</td>
+                            <td className="p-2.5 font-sans">
+                              <span className="block text-slate-850">{imp.patientName}</span>
+                              <span className="text-[10px] text-slate-450 font-mono text-slate-400">{imp.uhid}</span>
+                            </td>
+                            <td className="p-2.5">{imp.implantedAt}</td>
+                            <td className="p-2.5 font-sans select-none">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${imp.certified ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800 animate-pulse font-extrabold"}`}>
+                                {imp.certified ? "CDSCO APPROVED" : "SUSPECTED ALIEN ELEMENT"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeFraudTab === "audit_cert" && (
+            <div className="space-y-6">
+              {/* Compliance dossier builder */}
+              <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="border-b pb-3 select-none">
+                  <h4 className="text-xs font-black text-indigo-950 uppercase tracking-tight flex items-center gap-1">
+                    📜 Audit-Ready Documentation &amp; Certification Creator
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-semibold">
+                    Submit compliance summaries below to lock database schemas under decentralized anti-tampering checksum profiles.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                  {/* Inputs */}
+                  <div className="lg:col-span-2 bg-slate-50 p-4.5 rounded-xl border space-y-3.5 text-xs font-semibold">
+                    <div>
+                      <label className="block text-[10.5px] text-slate-600 font-bold mb-1">Lead Audit Examiner</label>
+                      <input
+                        type="text"
+                        value={complianceInspectorName}
+                        onChange={(e) => setComplianceInspectorName(e.target.value)}
+                        className="w-full bg-white border rounded-lg p-2 font-sans font-bold text-slate-800 focus:outline-hidden"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10.5px] text-slate-600 font-bold mb-1">Official Forensic Audit Ledger Remarks</label>
+                      <textarea
+                        rows={4}
+                        value={complianceNotes}
+                        onChange={(e) => setComplianceNotes(e.target.value)}
+                        className="w-full bg-white border rounded-lg p-2 font-sans text-slate-800 focus:outline-hidden leading-relaxed"
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setComplianceSaved(true);
+                        alert("Cryptographic compliance dossier sealed! You may now export/print the certificate below.");
+                      }}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs py-2 rounded-lg transition active:scale-95 cursor-pointer text-center select-none"
+                    >
+                      Lock Forensic Certificate Data
+                    </button>
+                  </div>
+
+                  {/* Cert Presentation Box */}
+                  <div className="lg:col-span-3 bg-slate-50 border rounded-2xl p-5 flex flex-col justify-between items-center relative overflow-hidden shadow-sm select-none">
+                    
+                    {/* Watermark logo */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-3 pointer-events-none select-none hover:cursor-default">
+                      <ShieldAlert className="h-64 w-64 text-slate-900 opacity-[0.03]" />
+                    </div>
+
+                    {/* Government style border design */}
+                    <div className="p-6 border-4 border-double border-indigo-900 bg-white rounded-lg w-full space-y-4 shadow-3xs relative z-10 text-center font-sans">
+                      
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-[#003580] block">
+                          National Health Authority • Anti-Fraud Division
+                        </span>
+                        <h4 className="text-xs font-extrabold text-slate-900 uppercase">
+                          Certificate of System Integrity &amp; FWA Conformity
+                        </h4>
+                        <div className="h-0.5 bg-gradient-to-r from-amber-500 via-indigo-900 to-emerald-500 w-32 mx-auto" />
+                      </div>
+
+                      <div className="space-y-2 py-4">
+                        <p className="text-[11px] text-slate-600 leading-normal font-medium max-w-sm mx-auto">
+                          This document certifies that the <strong>MediNexus NHA Platform</strong> has audited the active patient records against upcoding, dual billing, and counterfeit implant serial lists.
+                        </p>
+                        
+                        <div className="bg-slate-50 border border-dashed p-2.5 rounded text-[10px] font-mono leading-relaxed text-left text-slate-600">
+                          <div>• Lead Inspector: {complianceInspectorName}</div>
+                          <div>• Audit Run Count: {fraudAuditRunCount} runs</div>
+                          <div>• Checked Claims: {claims.length} entries registered</div>
+                          <div>• Remarks: "{complianceNotes}"</div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-end border-t pt-2 text-[10px] leading-tight text-slate-500 text-left font-mono">
+                        <div>
+                          <span className="block text-slate-400 uppercase text-[8px] font-bold font-sans">Seal Authority:</span>
+                          <span className="text-[#003580] font-black">NHA SECRETARIAT</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="block text-slate-400 uppercase text-[8px] font-bold font-sans">SHA-256 Digest:</span>
+                          <span className="text-indigo-950 font-black">HASH-COM-99120-OK</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {complianceSaved && (
+                      <div className="w-full mt-4 flex justify-center">
+                        <button
+                          onClick={() => {
+                            window.print();
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs py-2 px-4 rounded-lg flex items-center justify-center gap-1.5 transition shadow-sm active:scale-95 cursor-pointer"
+                        >
+                          <FileSpreadsheet className="h-4 w-4" /> Download Certified Audit PDF
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

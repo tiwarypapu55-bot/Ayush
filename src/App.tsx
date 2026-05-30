@@ -15,6 +15,7 @@ import AyushmanMitraView from "./components/AyushmanMitraView";
 import AncillaryViews from "./components/AncillaryViews";
 import SuperAdminAnalytics from "./components/SuperAdminAnalytics";
 import InventoryView from "./components/InventoryView";
+import MultiPayerWorkflow from "./components/MultiPayerWorkflow";
 import LoginPanel, { UserSession, PRESET_PANELISTS } from "./components/LoginPanel";
 import { 
   Patient, Encounter, PmjayClaim, HospitalBed, ConsentLog, 
@@ -505,6 +506,16 @@ export default function App() {
                 abhaMaster={abhaMaster}
                 onAddClaim={handleAddClaim}
                 onUpdateClaimStatus={handleUpdateClaimStatus}
+                onRefreshData={loadData}
+              />
+            )}
+
+            {currentRole === "MultiPayer" && (
+              <MultiPayerWorkflow
+                patients={patients}
+                encounters={encounters}
+                beds={beds}
+                onAddPatient={handleAddPatient}
                 onRefreshData={loadData}
               />
             )}

@@ -14,6 +14,7 @@ const ROLES = [
   { id: "Doctor", label: "Doctor EMR", icon: "🩺" },
   { id: "Nurse", label: "Nurse / Bed Panel", icon: "🏥" },
   { id: "AyushmanMitra", label: "Ayushman Mitra", icon: "🛡️" },
+  { id: "MultiPayer", label: "Multi-Payer Desk", icon: "👑" },
   { id: "LabStaff", label: "LIS / Radiology", icon: "🔬" },
   { id: "Pharmacy", label: "Pharmacy Unit", icon: "💊" },
   { id: "Inventory", label: "Store & Inventory", icon: "📦" },

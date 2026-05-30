@@ -1,16 +1,64 @@
 import { createClient } from "@supabase/supabase-js";
 import { Patient } from "./types";
 
-const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || "https://orivwcqebtfiztuddosy.supabase.co";
-const SUPABASE_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "sb_publishable_Osj37t18anLhncZQj2hoqQ_KfkMvbH1";
+const REAL_SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL;
+const REAL_SUPABASE_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Detect if a custom, real Supabase instance has been configured
+export const isSupabaseConfigured = !!(
+  REAL_SUPABASE_URL && 
+  REAL_SUPABASE_KEY && 
+  REAL_SUPABASE_URL !== "https://orivwcqebtfiztuddosy.supabase.co" &&
+  !REAL_SUPABASE_URL.includes("orivwcqebtfiztuddosy")
+);
+
+// Fallback Chainable Mock Client to facilitate clean offline operation
+class MockSupabaseClient {
+  from(table: string) {
+    return {
+      select(columns?: string) {
+        const chain = {
+          limit(qty: number) {
+            return Promise.resolve({ 
+              data: [], 
+              error: { 
+                message: "Supabase environment credentials not configured.", 
+                code: "MOCK_OFFLINE" 
+              } 
+            });
+          },
+          order(col: string, options?: any) {
+            return Promise.resolve({ data: [], error: null });
+          },
+          then(onfulfilled?: any) {
+            return Promise.resolve({ data: [], error: null }).then(onfulfilled);
+          }
+        };
+        return chain;
+      },
+      insert(rows: any[]) {
+        return Promise.resolve({ data: rows, error: null });
+      }
+    };
+  }
+}
+
+export const supabase = isSupabaseConfigured
+  ? createClient(REAL_SUPABASE_URL, REAL_SUPABASE_KEY)
+  : (new MockSupabaseClient() as any);
 
 /**
  * Checks if the Supabase table exists and is accessible.
  * Will fall back gracefully if the table is not set up on Supabase yet.
  */
 export async function checkSupabaseConnection(): Promise<{ connected: boolean; tableExists: boolean; error?: string }> {
+  if (!isSupabaseConfigured) {
+    return { 
+      connected: false, 
+      tableExists: false, 
+      error: "Supabase integration not configured. Provide custom credential variables VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Settings." 
+    };
+  }
   try {
     const { data, error } = await supabase.from("patients").select("id").limit(1);
     if (error) {
