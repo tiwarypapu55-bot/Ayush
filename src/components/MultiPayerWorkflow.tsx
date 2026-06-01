@@ -131,6 +131,27 @@ const MOCK_PROCEDURE_BUNDLES: ProcedureBundle[] = [
 export default function MultiPayerWorkflow({ patients, encounters, beds, onAddPatient, onRefreshData }: MultiPayerWorkflowProps) {
   // Navigation tabs
   const [activeWorkspace, setActiveWorkspace] = useState<"payer-segments" | "advanced-pricing" | "smart-billing">("payer-segments");
+
+  // Premium Toast Notification state & helper to bypass iFrame alert blocks
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+    setToast({ message, type });
+  };
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  // Shadow window.alert locally with our gorgeous custom sliding notifications
+  const alert = (message: string) => {
+    showToast(message, "success");
+  };
   
   // Tab 1 Sub-Tab: Active Payer Mode
   const [selectedPayerType, setSelectedPayerType] = useState<"Cash" | "TPA" | "Corporate" | "Embassy" | "Subscription" | "Ayushman">("Cash");
@@ -219,12 +240,73 @@ export default function MultiPayerWorkflow({ patients, encounters, beds, onAddPa
   const [preAuthIcdCode, setPreAuthIcdCode] = useState("I25.10 (Coronary Arteriopathy)");
   const [activePreAuthCarrier, setActivePreAuthCarrier] = useState("STAR");
 
-  // State: Corporate Credit Settler
-  const [corporateInvoices, setCorporateInvoices] = useState<{ id: string; company: string; patient: string; sumCredit: string; approvedBy: string; status: "Awaiting Month-End Clearance" | "Settled Credit Ledger" }[]>([
-    { id: "CORP-TX-9902", company: "Tata AIG Corporate", patient: "Devendra Singhania", sumCredit: "₹1,45,000", approvedBy: "Alok Sen (CHRO)", status: "Awaiting Month-End Clearance" }
+  // State: Corporate Credit Settler with Extended Fields for Wages/Charges auditing
+  const [corporateInvoices, setCorporateInvoices] = useState<{
+    id: string;
+    company: string;
+    patient: string;
+    patientId: string;
+    sumCredit: string;
+    amountValue: number;
+    approvedBy: string;
+    status: "Awaiting Month-End Clearance" | "Settled Credit Ledger" | "Partially Cleared";
+    payablesList: {
+      id: string;
+      type: "Doctor Wage" | "Staff Wage" | "Supplier Charge";
+      payeeName: string;
+      description: string;
+      amount: number;
+    }[];
+    clearedAmount?: number;
+    transactionRef?: string;
+    clearanceDate?: string;
+  }[]>([
+    { 
+      id: "CORP-TX-9902", 
+      company: "TATA General Corporate", 
+      patient: "Devendra Singhania", 
+      patientId: "UHID-GUEST-990",
+      sumCredit: "₹1,77,000", 
+      amountValue: 177000,
+      approvedBy: "Alok Sen (CHRO)", 
+      status: "Awaiting Month-End Clearance",
+      payablesList: [
+        { id: "PAY-1", type: "Doctor Wage", payeeName: "Dr. Arvind (Senior Cardio)", description: "Consultation & OT supervision", amount: 15000 },
+        { id: "PAY-2", type: "Staff Wage", payeeName: "OT Staff Sneha (Lead)", description: "OT Surgical Scrub assistance", amount: 5000 },
+        { id: "PAY-3", type: "Supplier Charge", payeeName: "Chiron Medical Implants Group", description: "Vascular Suture Packs & Supplies", amount: 12000 }
+      ],
+      clearedAmount: undefined,
+      transactionRef: undefined,
+      clearanceDate: undefined
+    }
   ]);
   const [corpApprovedBy, setCorpApprovedBy] = useState("Sumira Nadkarni (Internal Credit Auditor)");
   const [selectedCorpEmployer, setSelectedCorpEmployer] = useState("TATA");
+
+  // Dynamic staging state for custom corporate payee wage/material bookings
+  const [appliedPayablesMap, setAppliedPayablesMap] = useState<Record<string, {
+    id: string;
+    type: "Doctor Wage" | "Staff Wage" | "Supplier Charge";
+    payeeName: string;
+    description: string;
+    amount: number;
+  }[]>>({
+    "UHID-GUEST-990": [
+      { id: "PAY-1", type: "Doctor Wage", payeeName: "Dr. Arvind (Senior Cardio)", description: "Consultation & OT supervision", amount: 15000 },
+      { id: "PAY-2", type: "Staff Wage", payeeName: "OT Staff Sneha (Lead)", description: "OT Surgical Scrub assistance", amount: 5000 },
+      { id: "PAY-3", type: "Supplier Charge", payeeName: "Chiron Medical Implants Group", description: "Vascular Suture Packs & Supplies", amount: 12000 }
+    ]
+  });
+
+  const [payeeTypeInput, setPayeeTypeInput] = useState<"Doctor Wage" | "Staff Wage" | "Supplier Charge">("Doctor Wage");
+  const [payeeNameInput, setPayeeNameInput] = useState("Dr. Amit Sharma (Lead Cardiac Surgeon)");
+  const [serviceDescInput, setServiceDescInput] = useState("Specialist Cardiothoracic Surgeon Intra-Op Surcharge");
+  const [payableAmountInput, setPayableAmountInput] = useState("25000");
+
+  const [selectedClearanceInvoiceId, setSelectedClearanceInvoiceId] = useState<string | null>(null);
+  const [clearancePayAmount, setClearancePayAmount] = useState("");
+  const [clearanceTxRef, setClearanceTxRef] = useState("");
+  const [clearanceDate, setClearanceDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   // State: Embassy Support logs
   const [embassyGuarantees, setEmbassyGuarantees] = useState<{ id: string; patient: string; nationality: string; guaranteeAmt: number; interpreter: string; currency: "USD" | "EUR" | "GBP" | "INR"; escortsName: string }[]>([
@@ -381,19 +463,117 @@ export default function MultiPayerWorkflow({ patients, encounters, beds, onAddPa
     alert(`Comprehensive Insurance Claim Packet dispatched successfully! Pre-Auth check issued.`);
   };
 
-  // Settle Corporate invoices
+  // Apply dynamic charges & wages for Corporate Sponsor Patients
+  const handleAddCorporatePayable = (patientId: string) => {
+    let finalPayee = payeeNameInput.trim();
+    let finalDesc = serviceDescInput.trim();
+    let finalAmount = payableAmountInput.trim();
+
+    // Support automatic mock defaults if fields are left empty on dynamic addition!
+    if (!finalPayee) finalPayee = "Dr. Amit Sharma (Lead Cardiac Surgeon)";
+    if (!finalDesc) finalDesc = "Specialist Cardiothoracic Surgeon Intra-Op Surcharge";
+    if (!finalAmount) finalAmount = "25000";
+
+    const amt = parseFloat(finalAmount);
+    if (isNaN(amt) || amt <= 0) {
+      alert("Please provide a valid positive amount.");
+      return;
+    }
+
+    const newItem = {
+      id: `PAY-${Math.floor(1000 + Math.random() * 8999)}`,
+      type: payeeTypeInput,
+      payeeName: finalPayee,
+      description: finalDesc,
+      amount: amt
+    };
+
+    setAppliedPayablesMap(prev => {
+      const current = prev[patientId] || [];
+      return {
+        ...prev,
+        [patientId]: [...current, newItem]
+      };
+    });
+
+    setPayeeNameInput("");
+    setServiceDescInput("");
+    setPayableAmountInput("");
+    alert(`Successfully applied ₹${amt.toLocaleString()} payable to ${newItem.payeeName} against this patient's corporate folder!`);
+  };
+
+  const handleDeleteCorporatePayable = (patientId: string, itemId: string) => {
+    setAppliedPayablesMap(prev => {
+      const current = prev[patientId] || [];
+      return {
+        ...prev,
+        [patientId]: current.filter(item => item.id !== itemId)
+      };
+    });
+  };
+
+  // Upgraded: Settle Corporate invoices with custom Applied Wages / Supplier Charges
   const emitCorporateCreditInvoice = () => {
-    const totalRaw = activeBillItems.reduce((acc, curr) => acc + curr.rawCost, 0);
+    const baselineRaw = activeBillItems.reduce((acc, curr) => acc + curr.rawCost, 0);
+    const customPayables = appliedPayablesMap[activePatientObj.id] || [];
+    const payablesSum = customPayables.reduce((acc, curr) => acc + curr.amount, 0);
+    const totalRaw = baselineRaw + payablesSum;
+
     const newInv = {
       id: `CORP-TX-${Math.floor(1000 + Math.random() * 8999)}`,
       company: `${selectedCorpEmployer} General Corporate`,
       patient: activePatientObj.name,
+      patientId: activePatientObj.id,
       sumCredit: `₹${totalRaw.toLocaleString()}`,
+      amountValue: totalRaw,
       approvedBy: corpApprovedBy,
-      status: "Awaiting Month-End Clearance" as const
+      status: "Awaiting Month-End Clearance" as const,
+      payablesList: customPayables,
+      clearedAmount: undefined,
+      transactionRef: undefined,
+      clearanceDate: undefined
     };
+
     setCorporateInvoices(prev => [newInv, ...prev]);
-    alert(`Corporate invoice dispatched to sponsor hub! Awaiting month-end consolidation balance.`);
+
+    // Clear staging payables since they are now bound to the formal outstanding invoice
+    setAppliedPayablesMap(prev => ({
+      ...prev,
+      [activePatientObj.id]: []
+    }));
+
+    alert(`Corporate claim invoice ${newInv.id} compiled & dispatched!\n- Baseline Medicals: ₹${baselineRaw.toLocaleString()}\n- Professional Fees & Supplies: ₹${payablesSum.toLocaleString()}\n- Grand Claim balance: ₹${totalRaw.toLocaleString()}\nAwaiting month-end clearing agency review.`);
+  };
+
+  // Process and record subsequent payments on clearance of corporate bill
+  const handleCorporateClearance = (invoiceId: string) => {
+    const amt = parseFloat(clearancePayAmount);
+    if (!clearancePayAmount || isNaN(amt) || amt <= 0) {
+      alert("Please enter a valid cleared payment amount.");
+      return;
+    }
+    if (!clearanceTxRef) {
+      alert("Bank transaction transfer reference/UTR is mandatory for audit accounting.");
+      return;
+    }
+
+    setCorporateInvoices(prev => prev.map(inv => {
+      if (inv.id === invoiceId) {
+        return {
+          ...inv,
+          status: "Settled Credit Ledger" as const,
+          clearedAmount: amt,
+          transactionRef: clearanceTxRef,
+          clearanceDate: clearanceDate
+        };
+      }
+      return inv;
+    }));
+
+    setSelectedClearanceInvoiceId(null);
+    setClearancePayAmount("");
+    setClearanceTxRef("");
+    alert(`Corporate payment clearance recorded successfully!\n- UTR Ref: ${clearanceTxRef}\n- Cleared sum: ₹${amt.toLocaleString()}\n- Disbursed all attached consultant fees, care wages, and vendor materials.`);
   };
 
   // Add Embassy Direct guarantee
@@ -557,7 +737,27 @@ export default function MultiPayerWorkflow({ patients, encounters, beds, onAddPa
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden" id="multi-payer-comprehensive-workspace">
+    <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden relative" id="multi-payer-comprehensive-workspace">
+      
+      {/* Floating System Messages Overlay */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-[9999] bg-slate-900 border border-slate-800 text-white shadow-2xl px-5 py-4 rounded-2xl flex items-center gap-3 max-w-sm transition-all duration-300 transform scale-100 animate-fadeIn">
+          <div className="bg-[#003580] text-emerald-400 rounded-full p-2 flex items-center justify-center">
+            <CheckCircle2 className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <p className="text-[9px] font-black uppercase text-indigo-400 tracking-wider">Audit Workflow Notification</p>
+            <p className="text-xs text-slate-100 font-bold mt-0.5 leading-snug">{toast.message}</p>
+          </div>
+          <button 
+            type="button" 
+            onClick={() => setToast(null)} 
+            className="text-slate-400 hover:text-white cursor-pointer p-1 transition"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       
       {/* Visual Identity Hero Header */}
       <div className="bg-gradient-to-r from-slate-900 via-rose-950 to-indigo-950 text-white p-6 relative">
@@ -866,80 +1066,407 @@ export default function MultiPayerWorkflow({ patients, encounters, beds, onAddPa
               {/* SUB-PAYER 3: CORPORATE CREDIT SETTLEMENT */}
               {selectedPayerType === "Corporate" && (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                  <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
-                    <span className="text-[10px] font-black text-indigo-900 uppercase block tracking-widest text-indigo-600">🏢 Credit Sponsorship Settler</span>
-                    <h3 className="text-xs font-black text-slate-900 uppercase">Authorize Corporate Credit Letter</h3>
-                    
-                    <div className="space-y-3.5">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Employer Partner</label>
-                          <select 
-                            value={selectedCorpEmployer} 
-                            onChange={(e) => setSelectedCorpEmployer(e.target.value)}
-                            className="w-full bg-slate-50 border text-xs px-2 py-2 rounded-lg font-bold"
-                          >
-                            <option value="TATA">Tata Motors Private</option>
-                            <option value="STAR">Star Alliance Group</option>
-                            <option value="ICICI">ICICI Corporate Desk</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Sponsor Credit Lim</label>
-                          <span className="block text-xs font-bold font-mono text-indigo-700 bg-slate-50 border px-2 py-2 rounded-lg">₹25,00,000 Active</span>
-                        </div>
+                  {/* Left Column: Management of Sponsor Patients, Allocation & Payables */}
+                  <div className="lg:col-span-6 space-y-6 animate-fadeIn">
+                    {/* Patient Selector and Configuration Row */}
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
+                      <span className="text-[10px] font-black text-indigo-900 uppercase block tracking-widest flex items-center gap-1.5 text-indigo-600">
+                        <Building2 className="h-4 w-4" /> Corporate Patient Board & Allocation Desk
+                      </span>
+                      <div>
+                        <label className="block text-[9.5px] font-bold text-slate-500 uppercase mb-1">Select Corporate Sponsor Patient</label>
+                        <select
+                          value={focusedPatientId}
+                          onChange={(e) => setFocusedPatientId(e.target.value)}
+                          className="w-full bg-white border text-xs px-3 py-2.5 rounded-lg font-bold shadow-2xs"
+                        >
+                          {activeFocusPatients.map(p => (
+                            <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
+                          ))}
+                        </select>
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Authorized Employer Signatory</label>
-                        <input 
-                          type="text" 
-                          value={corpApprovedBy}
-                          onChange={(e) => setCorpApprovedBy(e.target.value)}
-                          className="w-full bg-slate-50 border text-xs font-semibold px-3 py-2.5 rounded-lg"
-                        />
+                      <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg text-indigo-950 flex justify-between items-center text-xs">
+                        <div>
+                          <p className="font-semibold text-[11.5px]">Assigned Corporate Sponsor: <strong>{selectedCorpEmployer}</strong></p>
+                          <p className="text-[10px] text-indigo-700">Pre-authorized Credit Coverage Active & Verified</p>
+                        </div>
+                        <span className="bg-[#003580] text-white text-[9.5px] font-black font-mono px-2 py-0.5 rounded uppercase">Verified</span>
+                      </div>
+                    </div>
+
+                    {/* Wages and Material Supply Overhead Allocator Form */}
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-3xs">
+                      <div className="border-b pb-2 flex justify-between items-center text-xs">
+                        <h4 className="font-black text-slate-900 uppercase flex items-center gap-1.5">
+                          <Coins className="h-4 w-4 text-amber-600" /> Apply Sponsor-linked Payables
+                        </h4>
+                        <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-bold font-mono">NABH Compliant</span>
+                      </div>
+                      <p className="text-[10.5px] text-slate-500 font-semibold leading-relaxed">
+                        Add and apply doctor consultation fees, nursing OT wages, or supplier material/implant costs to be billed back to the sponsor against their services or material supply used for this patient.
+                      </p>
+
+                      <div className="space-y-3 text-xs">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Expense/Payable Category</label>
+                            <select
+                              value={payeeTypeInput}
+                              onChange={(e) => setPayeeTypeInput(e.target.value as any)}
+                              className="w-full bg-slate-50 border text-xs px-2.5 py-2.5 rounded-lg font-bold font-sans"
+                            >
+                              <option value="Doctor Wage">🩺 Doctor Professional Fees (Wages)</option>
+                              <option value="Staff Wage">🧑‍⚕️ Staff & Nursing Coordinator Wages</option>
+                              <option value="Supplier Charge">📦 Supplier Material/Implant Charges</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Payee Name / Vendor Name</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Dr. Arvind, Staff Sneha, AstraZeneca Co"
+                              value={payeeNameInput}
+                              onChange={(e) => setPayeeNameInput(e.target.value)}
+                              className="w-full bg-slate-50 border text-xs px-2.5 py-2.5 rounded-lg font-semibold"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div className="md:col-span-2">
+                            <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Service / Material Used Description</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Surgeon Procedure Fee, Implant suture pack, Special consultations"
+                              value={serviceDescInput}
+                              onChange={(e) => setServiceDescInput(e.target.value)}
+                              className="w-full bg-slate-50 border text-xs px-2.5 py-2.5 rounded-lg font-medium"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Expense/Amount (₹)</label>
+                            <input
+                              type="number"
+                              placeholder="12000"
+                              value={payableAmountInput}
+                              onChange={(e) => setPayableAmountInput(e.target.value)}
+                              className="w-full bg-slate-50 border text-xs font-mono font-bold px-2.5 py-2.5 rounded-lg"
+                            />
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleAddCorporatePayable(focusedPatientId)}
+                          className="w-full bg-slate-900 hover:bg-slate-950 text-white font-black text-xs py-3 rounded-lg cursor-pointer flex justify-center items-center gap-1.5 transition"
+                        >
+                          <Plus className="h-4 w-4" /> Apply Dynamic Overhead Surcharge
+                        </button>
                       </div>
 
-                      <button
-                        onClick={emitCorporateCreditInvoice}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs py-3 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition select-none"
-                      >
-                        <Landmark className="h-4 w-4" /> Issue Periodic Credit Invoice
-                      </button>
+                      {/* Staging Applied Payables Breakdown for Patient */}
+                      <div className="border-t pt-3 space-y-2 text-xs">
+                        <span className="text-[10px] uppercase font-black text-slate-400 block tracking-wider">Applied Overheads for {activePatientObj?.name || "Patient"}:</span>
+                        {(appliedPayablesMap[focusedPatientId] || []).length > 0 ? (
+                          <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
+                            {(appliedPayablesMap[focusedPatientId] || []).map(item => (
+                              <div key={item.id} className="bg-slate-50 border border-slate-100 p-2.5 rounded-lg flex justify-between items-center text-[10.5px]">
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-black uppercase text-white ${
+                                      item.type === "Doctor Wage" ? "bg-cyan-700" : item.type === "Staff Wage" ? "bg-indigo-600" : "bg-amber-600"
+                                    }`}>{item.type}</span>
+                                    <span className="font-bold text-slate-900">{item.payeeName}</span>
+                                  </div>
+                                  <p className="text-slate-500 text-[10px] mt-0.5">{item.description}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-extrabold text-indigo-950">₹{item.amount.toLocaleString()}</span>
+                                  <button
+                                    onClick={() => handleDeleteCorporatePayable(focusedPatientId, item.id)}
+                                    className="text-rose-500 hover:text-rose-700 font-extrabold p-1 cursor-pointer"
+                                    title="Delete overhead"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 italic">No custom payables or material supplies applied against this corporate folder yet.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Authorize & Dispatch Form */}
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+                      <span className="text-[10px] font-black text-indigo-900 uppercase block tracking-widest text-indigo-600">🏢 Credit Sponsorship Settler</span>
+                      <h4 className="text-xs font-black text-slate-900 uppercase">Issue Invoice & Bind Applied Ledger</h4>
+                      
+                      <div className="space-y-3.5 text-xs">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Employer Partner</label>
+                            <select 
+                              value={selectedCorpEmployer} 
+                              onChange={(e) => setSelectedCorpEmployer(e.target.value)}
+                              className="w-full bg-slate-50 border text-xs px-2.5 py-2.5 rounded-lg font-bold"
+                            >
+                              <option value="TATA">Tata Motors Private</option>
+                              <option value="STAR">Star Alliance Group</option>
+                              <option value="ICICI">ICICI Corporate Desk</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Sponsor Credit Lim</label>
+                            <span className="block text-xs font-bold font-mono text-indigo-700 bg-slate-50 border px-2.5 py-2.5 rounded-lg">₹25,00,000 Active</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Authorized Employer Signatory</label>
+                          <input 
+                            type="text" 
+                            value={corpApprovedBy}
+                            onChange={(e) => setCorpApprovedBy(e.target.value)}
+                            className="w-full bg-slate-50 border text-xs font-semibold px-3 py-2.5 rounded-lg"
+                          />
+                        </div>
+
+                        {/* Calculations summary preview */}
+                        <div className="bg-slate-50 p-3.5 rounded-lg text-[11px] font-sans border space-y-1.5 text-slate-700">
+                          <div className="flex justify-between">
+                            <span>Base Medical Svc Bill Cost:</span>
+                            <span className="font-mono">₹{(activeBillItems.reduce((acc, curr) => acc + curr.rawCost, 0)).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-indigo-700 font-semibold">
+                            <span>Applied Doctor/Staff Wages & Supply Costs:</span>
+                            <span className="font-mono">+₹{((appliedPayablesMap[focusedPatientId] || []).reduce((acc, curr) => acc + curr.amount, 0)).toLocaleString()}</span>
+                          </div>
+                          <div className="border-t pt-1.5 mt-1 flex justify-between font-extrabold text-indigo-950 text-xs">
+                            <span>Total Corporate Invoice Value:</span>
+                            <span className="font-mono">₹{((activeBillItems.reduce((acc, curr) => acc + curr.rawCost, 0)) + ((appliedPayablesMap[focusedPatientId] || []).reduce((acc, curr) => acc + curr.amount, 0))).toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={emitCorporateCreditInvoice}
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs py-3 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition select-none"
+                        >
+                          <Landmark className="h-4 w-4" /> Issue Periodic Credit Invoice
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
-                    <h3 className="text-xs font-black text-slate-900 uppercase">Corporate Credit Settlements Ledger</h3>
-                    <div className="overflow-x-auto text-[11px] font-medium text-slate-700">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50 border-b text-[9.5px] uppercase font-bold text-slate-400">
-                            <th className="p-2.5">Invoice ID</th>
-                            <th className="p-2.5">Employer Co</th>
-                            <th className="p-2.5">Patient Employee</th>
-                            <th className="p-2.5">Invoice Balance</th>
-                            <th className="p-2.5">Authorization By</th>
-                            <th className="p-2.5">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y font-semibold">
-                          {corporateInvoices.map(inv => (
-                            <tr key={inv.id} className="hover:bg-slate-50">
-                              <td className="p-2.5 font-mono text-indigo-700 font-bold">{inv.id}</td>
-                              <td className="p-2.5 font-bold text-slate-900">{inv.company}</td>
-                              <td className="p-2.5">{inv.patient}</td>
-                              <td className="p-2.5 font-mono font-extrabold text-indigo-950 text-right">{inv.sumCredit}</td>
-                              <td className="p-2.5 text-slate-500 text-[9.5px]">{inv.approvedBy}</td>
-                              <td className="p-2.5">
-                                <span className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded text-[8px] font-black uppercase">
-                                  {inv.status}
-                                </span>
-                              </td>
+                  {/* Right Column: Settlements Ledger & Subsequent Payment Clearance */}
+                  <div className="lg:col-span-6 space-y-6">
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-3xs">
+                      <h3 className="text-xs font-black text-slate-900 uppercase">Corporate Credit Settlements Ledger</h3>
+                      <div className="overflow-x-auto text-[11px] font-medium text-slate-700">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 border-b text-[9.5px] uppercase font-bold text-slate-400">
+                              <th className="p-2.5">Invoice ID</th>
+                              <th className="p-2.5">Employer Co</th>
+                              <th className="p-2.5">Patient Employee</th>
+                              <th className="p-2.5 text-right font-bold">Invoice Balance</th>
+                              <th className="p-2.5 text-right">Status / Actions</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y font-semibold">
+                            {corporateInvoices.map(inv => (
+                              <tr key={inv.id} className="hover:bg-slate-50/50">
+                                <td className="p-2.5 font-mono text-indigo-705 text-indigo-600 font-bold">{inv.id}</td>
+                                <td className="p-2.5 font-bold text-slate-900">{inv.company}</td>
+                                <td className="p-2.5">{inv.patient}</td>
+                                <td className="p-2.5 text-right font-mono font-extrabold text-indigo-950">
+                                  {inv.sumCredit}
+                                </td>
+                                <td className="p-2.5 text-right">
+                                  {inv.status === "Settled Credit Ledger" ? (
+                                    <span className="bg-emerald-50 border border-emerald-250 text-emerald-850 text-emerald-800 px-2.5 py-1 rounded text-[8.5px] font-black uppercase">
+                                      ✓ Settled Cleared
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        setSelectedClearanceInvoiceId(inv.id);
+                                        setClearancePayAmount(inv.amountValue.toString());
+                                      }}
+                                      className="bg-indigo-600 hover:bg-indigo-755 text-white font-black text-[9.5px] py-1 px-2.5 rounded cursor-pointer select-none"
+                                    >
+                                      Settle Clearance
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* PAYMENT COMPLIANCE / CLEARANCE INTERACTIVE CARD PANEL */}
+                    {selectedClearanceInvoiceId && (
+                      <div className="bg-amber-50/50 border border-amber-300 rounded-2xl p-5 space-y-4 animate-fadeIn">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-[10px] font-black text-amber-900 uppercase block tracking-wider flex items-center gap-1.5 font-bold">
+                            <Coins className="h-4 w-4 text-amber-600" /> Record Corporate payment clearance
+                          </span>
+                          <button
+                            onClick={() => setSelectedClearanceInvoiceId(null)}
+                            className="bg-white border border-amber-200 rounded p-1 cursor-pointer"
+                          >
+                            <X className="h-3.5 w-3.5 text-amber-900" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-3.5 text-xs">
+                          <p className="font-semibold text-slate-800 text-[11.5px]">
+                            Recording Clearance reference for Invoice: <strong className="font-mono text-indigo-700">{selectedClearanceInvoiceId}</strong>
+                          </p>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[9.5px] font-bold text-slate-500 uppercase mb-1">Cleared Paid Amount (₹)</label>
+                              <input
+                                type="number"
+                                value={clearancePayAmount}
+                                onChange={(e) => setClearancePayAmount(e.target.value)}
+                                className="w-full bg-white border text-xs px-2.5 py-2 rounded-lg font-mono font-bold shadow-2xs text-[#003580]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9.5px] font-bold text-slate-500 uppercase mb-1">Clearance Date</label>
+                              <input
+                                type="date"
+                                value={clearanceDate}
+                                onChange={(e) => setClearanceDate(e.target.value)}
+                                className="w-full bg-white border text-xs px-2.5 py-2 rounded-lg font-semibold"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[9.5px] font-bold text-slate-500 uppercase mb-1">UTR Bank transaction Reference / Receipt ID</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. CORP-UTR-84931-20"
+                              value={clearanceTxRef}
+                              onChange={(e) => setClearanceTxRef(e.target.value)}
+                              className="w-full bg-white border text-xs px-3 py-2.5 rounded-lg shadow-2xs font-mono text-slate-700 uppercase"
+                            />
+                          </div>
+
+                          <button
+                            onClick={() => handleCorporateClearance(selectedClearanceInvoiceId)}
+                            className="w-full bg-[#003580] text-white hover:bg-slate-900 font-extrabold py-2.5 rounded-lg text-xs cursor-pointer select-none"
+                          >
+                            ✓ Process & release Wages to Doctors/Staff/Suppliers
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SUBSIDIARY ACCOUNTING LEDGER & AUDIT TRAIL REPORTS */}
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-3xs">
+                      <span className="text-[10px] font-black text-emerald-950 uppercase block tracking-widest flex items-center gap-1.5 text-emerald-700">
+                        <FileSpreadsheet className="h-4 w-4" /> Corporate Payables Release Audit Ledger
+                      </span>
+                      <p className="text-[10.5px] text-slate-500 font-medium leading-relaxed">
+                        Below are the cleared entries showing disbursed professional fees to consultants, coordinators, and implants vendors after payment release from corporate.
+                      </p>
+
+                      <div className="space-y-4 text-xs font-sans font-medium">
+                        {corporateInvoices.filter(inv => inv.status === "Settled Credit Ledger").map(inv => {
+                          const payablesTotal = inv.payablesList?.reduce((acc, c) => acc + c.amount, 0) || 0;
+                          const baseFee = inv.amountValue - payablesTotal;
+                          
+                          // Proportional distribution factor (e.g. if partial clearance occurred)
+                          const cleanPayFactor = inv.clearedAmount ? (inv.clearedAmount / inv.amountValue) : 1;
+
+                          return (
+                            <div key={inv.id} className="border border-emerald-100 rounded-xl p-4 bg-emerald-50/5 space-y-3">
+                              <div className="flex justify-between items-center border-b border-dashed pb-2">
+                                <div>
+                                  <span className="font-mono text-indigo-700 font-black text-xs block">{inv.id} (Disbursed Voucher)</span>
+                                  <span className="text-[9.5px] text-slate-500 font-bold">Employer: {inv.company} • Employee: {inv.patient}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-xs font-mono font-extrabold text-emerald-700 block">Released: ₹{(inv.clearedAmount || inv.amountValue).toLocaleString()}</span>
+                                  <span className="text-[8px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black font-mono">UTR: {inv.transactionRef || "SYSTEM-SETTLE"}</span>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2 mt-2">
+                                <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">Accounting Allocation breakdown:</span>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10.5px]">
+                                  {/* Doctor professional wages */}
+                                  {inv.payablesList?.filter(p => p.type === "Doctor Wage").map(payable => (
+                                    <div key={payable.id} className="p-2 border border-slate-100 rounded-lg bg-white shadow-3xs">
+                                      <div className="flex justify-between font-semibold">
+                                        <span className="text-cyan-800 font-bold">🩺 Doc Wage: {payable.payeeName}</span>
+                                        <span className="font-mono font-extrabold">₹{Math.round(payable.amount * cleanPayFactor).toLocaleString()}</span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-[9px] text-slate-400 mt-1">
+                                        <span>Details: {payable.description}</span>
+                                        <span className="text-emerald-700 font-bold bg-emerald-50 px-1 rounded text-[8px]">✓ Disbursed HPR</span>
+                                      </div>
+                                    </div>
+                                  ))}
+
+                                  {/* Staff duties wages */}
+                                  {inv.payablesList?.filter(p => p.type === "Staff Wage").map(payable => (
+                                    <div key={payable.id} className="p-2 border border-slate-100 rounded-lg bg-white shadow-3xs">
+                                      <div className="flex justify-between font-semibold">
+                                        <span className="text-indigo-800 font-bold font-semibold">🧑‍⚕️ Staff Fee: {payable.payeeName}</span>
+                                        <span className="font-mono font-extrabold font-bold">₹{Math.round(payable.amount * cleanPayFactor).toLocaleString()}</span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-[9px] text-slate-400 mt-1">
+                                        <span>Details: {payable.description}</span>
+                                        <span className="text-indigo-700 font-black bg-indigo-50 px-1 rounded text-[8px]">✓ Paid Payroll</span>
+                                      </div>
+                                    </div>
+                                  ))}
+
+                                  {/* Supplier material charges */}
+                                  {inv.payablesList?.filter(p => p.type === "Supplier Charge").map(payable => (
+                                    <div key={payable.id} className="p-2 border border-slate-100 rounded-lg bg-white shadow-3xs">
+                                      <div className="flex justify-between font-semibold">
+                                        <span className="text-amber-800 font-bold">📦 Supplier: {payable.payeeName}</span>
+                                        <span className="font-mono font-extrabold">₹{Math.round(payable.amount * cleanPayFactor).toLocaleString()}</span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-[9px] text-slate-400 mt-1">
+                                        <span>Details: {payable.description}</span>
+                                        <span className="text-amber-700 font-bold bg-amber-50 px-1 rounded text-[8px]">✓ Cleared EFT</span>
+                                      </div>
+                                    </div>
+                                  ))}
+
+                                  {/* Net Hospital Treasury share */}
+                                  <div className="p-2 border border-[#003580]/10 rounded-lg bg-indigo-50/10 shadow-3xs col-span-1 md:col-span-2">
+                                    <div className="flex justify-between font-semibold text-slate-900">
+                                      <span className="font-bold text-indigo-950 flex items-center gap-1 font-semibold">🏦 Net Hospital Treasury retainment</span>
+                                      <span className="font-mono font-extrabold text-[#003580]">₹{Math.round(baseFee * cleanPayFactor).toLocaleString()}</span>
+                                    </div>
+                                    <p className="text-[9.5px] text-slate-450 text-slate-500 mt-0.5">Retained central clinical care revenue share from corporate payment settlement clearances.</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {corporateInvoices.filter(inv => inv.status === "Settled Credit Ledger").length === 0 && (
+                          <div className="text-center p-3 border rounded border-dashed text-slate-400 text-xs italic">
+                            No corporate invoice settled today yet. Settle an active invoice above to run the payout accounting allocations.
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -218,6 +218,10 @@ export interface Appointment {
   roomNo: string;
   consultType: 'OPD' | 'Tele-Consultation' | 'Follow-up';
   status: 'Scheduled' | 'Checked In' | 'Completed' | 'Cancelled';
+  token?: string; // e.g., OPD-TK-102
+  paymentStatus?: 'Paid' | 'Unpaid' | 'Pending' | 'Ayushman Approved' | 'Ayushman Pending';
+  urgency?: 'Normal' | 'Urgent' | 'Emergency';
+  patientClass?: 'Ayushman' | 'Standard' | 'Corporate' | 'Non-Ayushman';
 }
 
 export interface Admission {
@@ -269,5 +273,46 @@ export interface AuditLogEntry {
   status: 'SUCCESS' | 'DENIED' | 'FLAGGED';
   integrityHash: string; // SHA-256 format mockup
 }
+
+export interface DischargeSummary {
+  id: string; // DSC-XXXX
+  patientId: string;
+  patientName: string;
+  admissionDate: string;
+  dischargeDate: string;
+  doctorName: string;
+  department: string;
+  chiefComplaint: string;
+  diagnosis: string;
+  treatmentGiven: string;
+  conditionAtDischarge: string; // e.g. "Stable", "Recovered", "Improved", "LAMA"
+  medications: { medicine: string; dosage: string; generic: string; duration: string }[];
+  followUpDate: string;
+  followUpInstructions: string;
+  signedByDoctor: boolean;
+  doctorAbdmNumber: string;
+  createdAt: string;
+}
+
+export interface OperationConsent {
+  id: string; // CNS-XXXX
+  patientId: string;
+  patientName: string;
+  guardianName: string;
+  proposerDoctorName: string;
+  surgeonName: string;
+  procedureName: string;
+  indicationForSurgery: string;
+  risksExplained: string[];
+  alternativeTreatments: string;
+  witnessName: string;
+  isSignedByPatient: boolean;
+  patientSignatureDate: string | null;
+  isSignedByWitness: boolean;
+  isSignedBySurgeon: boolean;
+  status: 'Pending Patient Signature' | 'Fully Executed' | 'Revoked';
+  createdAt: string;
+}
+
 
 

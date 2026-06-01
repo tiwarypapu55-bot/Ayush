@@ -31,7 +31,8 @@ function getAI() {
 import { 
   Patient, Encounter, PmjayClaim, HospitalBed, ConsentLog, 
   HfrRegistry, HprRegistry, AbhaMaster, Department, Appointment, 
-  Admission, BillingRecord, PmjayPackage, AuditLogEntry 
+  Admission, BillingRecord, PmjayPackage, AuditLogEntry,
+  DischargeSummary, OperationConsent
 } from "./src/types";
 
 // Global state cache (Simulates our compliant hospital database)
@@ -50,6 +51,8 @@ const db: {
   billing: BillingRecord[];
   pmjayPackages: PmjayPackage[];
   auditLogs: AuditLogEntry[];
+  dischargeSummaries: DischargeSummary[];
+  operationConsents: OperationConsent[];
 } = {
   patients: [
     {
@@ -259,8 +262,10 @@ const db: {
     { code: "NEUR", name: "Neurology", hod: "Dr. Shruti Aggarwal", totalBeds: 15, occupiedBeds: 12, opdCharge: 800, status: "Operational" }
   ],
   appointments: [
-    { id: "APT-1002", patientId: "UHID-108291", patientName: "Ramesh Chandra Kumar", doctorName: "Dr. Arvind Swaminathan", department: "Cardiology", dateTime: "2026-05-25T11:00:00Z", roomNo: "Room 101", consultType: "OPD", status: "Scheduled" },
-    { id: "APT-1003", patientId: "UHID-291024", patientName: "Priyanka Devi Patel", doctorName: "Dr. Shruti Aggarwal", department: "General Medicine", dateTime: "2026-05-25T14:30:00Z", roomNo: "Room 205", consultType: "Follow-up", status: "Checked In" }
+    { id: "APT-1002", patientId: "UHID-108291", patientName: "Ramesh Chandra Kumar", doctorName: "Dr. Arvind Swaminathan", department: "Cardiology", dateTime: "2026-05-30T10:30:00Z", roomNo: "Room 101", consultType: "OPD", status: "Checked In", token: "OPD-TK-101", paymentStatus: "Ayushman Approved", urgency: "Normal", patientClass: "Ayushman" },
+    { id: "APT-1003", patientId: "UHID-291024", patientName: "Priyanka Devi Patel", doctorName: "Dr. Shruti Aggarwal", department: "General Medicine", dateTime: "2026-05-30T11:15:00Z", roomNo: "Room 205", consultType: "Follow-up", status: "Checked In", token: "OPD-TK-102", paymentStatus: "Paid", urgency: "Normal", patientClass: "Non-Ayushman" },
+    { id: "APT-1004", patientId: "UHID-120392", patientName: "Anand R. Sathe", doctorName: "Dr. Arvind Swaminathan", department: "Cardiology", dateTime: "2026-05-30T11:45:00Z", roomNo: "Room 101", consultType: "OPD", status: "Scheduled", token: "OPD-TK-103", paymentStatus: "Unpaid", urgency: "Urgent", patientClass: "Non-Ayushman" },
+    { id: "APT-1005", patientId: "UHID-329012", patientName: "Suresh Kumar Sharma", doctorName: "Dr. Shruti Aggarwal", department: "General Medicine", dateTime: "2026-05-30T12:00:00Z", roomNo: "Room 201", consultType: "OPD", status: "Checked In", token: "OPD-TK-104", paymentStatus: "Ayushman Pending", urgency: "Emergency", patientClass: "Ayushman" }
   ],
   admissions: [
     { id: "ADM-8001", patientId: "UHID-291024", patientName: "Priyanka Devi Patel", bedId: "B-101", bedNumber: "GW-01", bedType: "General Ward", admittingDoctor: "Dr. Shruti Aggarwal", admittedAt: "2026-05-23T14:30:00Z", dailyRate: 450, status: "Admitted" }
@@ -290,6 +295,80 @@ const db: {
     { id: "AUD-5091", timestamp: "2026-05-25T10:00:00Z", eventType: "LOGIN", actor: "SuperAdmin (NHA Administrator)", endpoint: "/api/session/login", resourceId: "SYS-ADMIN", status: "SUCCESS", integrityHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" },
     { id: "AUD-5092", timestamp: "2026-05-25T10:15:00Z", eventType: "EMR_ACCESS", actor: "Dr. Arvind (Doctor)", endpoint: "/api/patients/UHID-108291", resourceId: "UHID-108291", status: "SUCCESS", integrityHash: "f68c34ea81a5a92a559d80327e5ec01cd7a2fcf88cb6de990a424a7cf500e212" },
     { id: "AUD-5093", timestamp: "2026-05-25T10:20:00Z", eventType: "CLAIM_SUBMISSION", actor: "Ayushman Mitra (NHA Coordinator)", endpoint: "/api/claims", resourceId: "CLM-9912", status: "SUCCESS", integrityHash: "7a26fba4c13a0fc35292c2a05cf25470d069b1876bd692138a0fcf60021b3cd9" }
+  ],
+  dischargeSummaries: [
+    {
+      id: "DSC-8012",
+      patientId: "UHID-108291",
+      patientName: "Ramesh Chandra Kumar",
+      admissionDate: "2026-05-20T08:30:00Z",
+      dischargeDate: "2026-05-24T14:00:00Z",
+      doctorName: "Dr. Arvind Swaminathan",
+      department: "Cardiology",
+      chiefComplaint: "Mild discomfort in chest, retrosternal heaviness post walking.",
+      diagnosis: "Ischemic Heart Disease, Post Coronary Angiography",
+      treatmentGiven: "Coronary Angiographic mapping was done. Left coronary arterial branch shows minor wall narrowing. Initiated conservative pharmacotherapy.",
+      conditionAtDischarge: "Stable & Ambulatory",
+      medications: [
+        { medicine: "Ecosprin 75", dosage: "1 Tab", generic: "Aspirin 75 mg", duration: "30 Days" },
+        { medicine: "Atorva 10", dosage: "1 Tab", generic: "Atorvastatin 10 mg", duration: "6 Months" }
+      ],
+      followUpDate: "2026-06-10T11:00:00Z",
+      followUpInstructions: "Avoid heavy weight exercises. Return to emergency room immediately in case of sudden crushing radiating chest pain.",
+      signedByDoctor: true,
+      doctorAbdmNumber: "HPR-44-2222-1111",
+      createdAt: "2026-05-24T14:00:00Z"
+    }
+  ],
+  operationConsents: [
+    {
+      id: "CNS-3102",
+      patientId: "UHID-291024",
+      patientName: "Priyanka Devi Patel",
+      guardianName: "Sanjay Patel",
+      proposerDoctorName: "Dr. Shruti Aggarwal",
+      surgeonName: "Dr. Shruti Aggarwal",
+      procedureName: "Laparoscopic Cholecystectomy (Gallbladder Removal)",
+      indicationForSurgery: "Gallbladder calculus with recurrent acute cholecystitis - severe biliary colic.",
+      risksExplained: [
+        "Major haemorrhage requiring transfusion",
+        "Bile duct injury or bile leakage needing re-operation",
+        "Conversion to open cholecystectomy technique",
+        "General anaesthetic complications"
+      ],
+      alternativeTreatments: "Conservative low-fat diet with oral ursodeoxycholic acid therapy trials (less effective, risk of empyema).",
+      witnessName: "RK Sharma",
+      isSignedByPatient: true,
+      patientSignatureDate: "2026-05-23T10:00:00Z",
+      isSignedByWitness: true,
+      isSignedBySurgeon: true,
+      status: "Fully Executed",
+      createdAt: "2026-05-23T09:30:00Z"
+    },
+    {
+      id: "CNS-3103",
+      patientId: "UHID-108291",
+      patientName: "Ramesh Chandra Kumar",
+      guardianName: "Bihari Lal Kumar",
+      proposerDoctorName: "Dr. Arvind Swaminathan",
+      surgeonName: "Dr. Arvind Swaminathan",
+      procedureName: "Coronary Angioplasty (PTCA with Drug Eluting Stent)",
+      indicationForSurgery: "Severe coronary artery occlusion.",
+      risksExplained: [
+        "In-stent restenosis or acute stent thrombosis",
+        "Coronary artery dissection or rupture",
+        "Bleeding or hematoma at the radial/femoral arterial access site",
+        "Contrast-induced nephropathy"
+      ],
+      alternativeTreatments: "Optimal medical management using anti-anginal drugs.",
+      witnessName: "Amit Sharma",
+      isSignedByPatient: false,
+      patientSignatureDate: null,
+      isSignedByWitness: false,
+      isSignedBySurgeon: true,
+      status: "Pending Patient Signature",
+      createdAt: "2026-05-28T14:30:00Z"
+    }
   ]
 };
 
@@ -629,6 +708,99 @@ app.post("/api/encounters", (req, res) => {
   res.json(encounter);
 });
 
+// Discharge summaries endpoints
+app.get("/api/discharge", (req, res) => {
+  res.json(db.dischargeSummaries);
+});
+
+app.post("/api/discharge", (req, res) => {
+  const record = {
+    ...req.body,
+    id: `DSC-${Math.floor(1000 + Math.random() * 8999)}`,
+    createdAt: new Date().toISOString()
+  };
+  db.dischargeSummaries.unshift(record);
+  
+  const logEntry = {
+    id: `AUD-${Math.floor(1000 + Math.random() * 8999)}`,
+    timestamp: new Date().toISOString(),
+    eventType: "DATA_SYNC" as const,
+    actor: `${record.doctorName || "Staff"} (Doctor)`,
+    endpoint: "/api/discharge",
+    resourceId: record.id,
+    status: "SUCCESS" as const,
+    integrityHash: "25bb3ca492fc1f409adbaf498efb92c47ae41c4a45a6c49e9a449fc0021b85"
+  };
+  db.auditLogs.unshift(logEntry);
+
+  res.json(record);
+});
+
+// Operation consents endpoints
+app.get("/api/consents/operation", (req, res) => {
+  res.json(db.operationConsents);
+});
+
+app.post("/api/consents/operation", (req, res) => {
+  const record = {
+    ...req.body,
+    id: `CNS-${Math.floor(1000 + Math.random() * 8999)}`,
+    createdAt: new Date().toISOString(),
+    status: req.body.status || "Pending Patient Signature"
+  };
+  db.operationConsents.unshift(record);
+
+  const logEntry = {
+    id: `AUD-${Math.floor(1000 + Math.random() * 8999)}`,
+    timestamp: new Date().toISOString(),
+    eventType: "DATA_SYNC" as const,
+    actor: `${record.proposerDoctorName || "Staff"} (Doctor)`,
+    endpoint: "/api/consents/operation",
+    resourceId: record.id,
+    status: "SUCCESS" as const,
+    integrityHash: "b6b0c4a4efbf4b8c9adb34df89ec32be89fc48ab76cd2cf3a50be251999bd1"
+  };
+  db.auditLogs.unshift(logEntry);
+
+  res.json(record);
+});
+
+app.post("/api/consents/operation/sign", (req, res) => {
+  const { id, signatureType, signerName } = req.body;
+  const consent = db.operationConsents.find(c => c.id === id);
+  if (!consent) {
+    return res.status(404).json({ error: "Operation consent not found." });
+  }
+
+  if (signatureType === 'patient') {
+    consent.isSignedByPatient = true;
+    consent.patientSignatureDate = new Date().toISOString();
+  } else if (signatureType === 'witness') {
+    consent.isSignedByWitness = true;
+    if (signerName) consent.witnessName = signerName;
+  } else if (signatureType === 'surgeon') {
+    consent.isSignedBySurgeon = true;
+  }
+
+  if (consent.isSignedByPatient && consent.isSignedBySurgeon && consent.isSignedByWitness) {
+    consent.status = "Fully Executed";
+  }
+
+  const logEntry = {
+    id: `AUD-${Math.floor(1000 + Math.random() * 8999)}`,
+    timestamp: new Date().toISOString(),
+    eventType: "BIOMETRIC_VERIFY" as const,
+    actor: `${signerName || "On-duty clinician"} (Federal Authentication)`,
+    endpoint: "/api/consents/operation/sign",
+    resourceId: id,
+    status: "SUCCESS" as const,
+    integrityHash: "9a26fba4c13a0fc35292c2a05cf25470d069b1876bd692138a0fcf60021b3cd8"
+  };
+  db.auditLogs.unshift(logEntry);
+
+  res.json(consent);
+});
+
 // Fetch Consent & Registry List
 app.get("/api/consents", (req, res) => {
   res.json(db.consentLogs);
@@ -763,6 +935,41 @@ app.post("/api/admin/add-row", (req, res) => {
   db.auditLogs.unshift(logEntry);
 
   res.json({ success: true, record });
+});
+
+// Update appointment details for general and OPD queues
+app.post("/api/appointments/update", (req, res) => {
+  const { id, status, paymentStatus, urgency, doctorName, department, roomNo } = req.body;
+  if (!id) {
+    return res.status(400).json({ error: "Missing appointment id" });
+  }
+
+  const appt = db.appointments.find((a: any) => a.id === id);
+  if (!appt) {
+    return res.status(404).json({ error: "Appointment not found" });
+  }
+
+  if (status !== undefined) appt.status = status;
+  if (paymentStatus !== undefined) appt.paymentStatus = paymentStatus;
+  if (urgency !== undefined) appt.urgency = urgency;
+  if (doctorName !== undefined) appt.doctorName = doctorName;
+  if (department !== undefined) appt.department = department;
+  if (roomNo !== undefined) appt.roomNo = roomNo;
+
+  // Add an audit trail
+  const logEntry = {
+    id: `AUD-${Math.floor(1000 + Math.random() * 8999)}`,
+    timestamp: new Date().toISOString(),
+    eventType: "DATA_SYNC" as const,
+    actor: "Receptionist On-Duty Counter Desk",
+    endpoint: "/api/appointments/update",
+    resourceId: id,
+    status: "SUCCESS" as const,
+    integrityHash: "1e127cfdc859fba49a13b0069bc9bd2c3fa7e12918bb05c75deae"
+  };
+  db.auditLogs.unshift(logEntry);
+
+  res.json({ success: true, appointment: appt });
 });
 
 app.post("/api/admin/audit-verify", (req, res) => {

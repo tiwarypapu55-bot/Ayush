@@ -20,7 +20,8 @@ import LoginPanel, { UserSession, PRESET_PANELISTS } from "./components/LoginPan
 import { 
   Patient, Encounter, PmjayClaim, HospitalBed, ConsentLog, 
   HfrRegistry, HprRegistry, AbhaMaster, Department, Appointment, 
-  Admission, BillingRecord, PmjayPackage, AuditLogEntry 
+  Admission, BillingRecord, PmjayPackage, AuditLogEntry,
+  DischargeSummary, OperationConsent
 } from "./types";
 
 export default function App() {
@@ -79,12 +80,15 @@ export default function App() {
   const [pmjayPackages, setPmjayPackages] = useState<PmjayPackage[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [sharedPatientId, setSharedPatientId] = useState<string>("");
+  const [dischargeSummaries, setDischargeSummaries] = useState<DischargeSummary[]>([]);
+  const [operationConsents, setOperationConsents] = useState<OperationConsent[]>([]);
 
   const loadData = async () => {
     try {
       const [
         pRes, eRes, cRes, bRes, cnRes, hfrRes, hprRes,
-        abhaRes, deptRes, aptRes, admRes, billRes, pkgRes, auditRes
+        abhaRes, deptRes, aptRes, admRes, billRes, pkgRes, auditRes,
+        dscRes, opConRes
       ] = await Promise.all([
         fetch("/api/patients").then(r => r.json()),
         fetch("/api/encounters").then(r => r.json()),
@@ -99,7 +103,9 @@ export default function App() {
         fetch("/api/admissions").then(r => r.json()),
         fetch("/api/billing").then(r => r.json()),
         fetch("/api/pmjay_packages").then(r => r.json()),
-        fetch("/api/audit_logs").then(r => r.json())
+        fetch("/api/audit_logs").then(r => r.json()),
+        fetch("/api/discharge").then(r => r.json()),
+        fetch("/api/consents/operation").then(r => r.json())
       ]);
 
       // Attempt to load from Supabase - merging results on the fly
@@ -146,6 +152,8 @@ export default function App() {
       setBilling(billRes);
       setPmjayPackages(pkgRes);
       setAuditLogs(auditRes);
+      setDischargeSummaries(dscRes || []);
+      setOperationConsents(opConRes || []);
     } catch (err) {
       console.error("Failed to load full-stack HMS state indexes:", err);
     }
@@ -240,6 +248,29 @@ export default function App() {
       setEncounters(prev => [...prev, data]);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleUpdateAppointment = async (apptData: Partial<Appointment> & { id: string }) => {
+    try {
+      const resp = await fetch("/api/appointments/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(apptData)
+      });
+      const data = await resp.json();
+      if (data.success) {
+        setAppointments(prev => prev.map(a => a.id === apptData.id ? data.appointment : a));
+      }
+    } catch (err) {
+      console.error("Failed to update appointment:", err);
+      // Fallback local state updater
+      setAppointments(prev => prev.map(a => {
+        if (a.id === apptData.id) {
+          return { ...a, ...apptData };
+        }
+        return a;
+      }));
     }
   };
 
@@ -393,6 +424,69 @@ export default function App() {
     }
   };
 
+  const handleAddDischargeSummary = async (record: DischargeSummary) => {
+    try {
+      const resp = await fetch("/api/discharge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(record)
+      });
+      const data = await resp.json();
+      setDischargeSummaries(prev => [data, ...prev]);
+    } catch (err) {
+      console.error("Failed to post discharge summary:", err);
+      setDischargeSummaries(prev => [record, ...prev]);
+    }
+  };
+
+  const handleCreateOperationConsent = async (record: OperationConsent) => {
+    try {
+      const resp = await fetch("/api/consents/operation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(record)
+      });
+      const data = await resp.json();
+      setOperationConsents(prev => [data, ...prev]);
+    } catch (err) {
+      console.error("Failed to post operation consent:", err);
+      setOperationConsents(prev => [record, ...prev]);
+    }
+  };
+
+  const handleSignOperationConsent = async (consentId: string, signatureType: 'patient' | 'witness' | 'surgeon', signerName?: string) => {
+    try {
+      const resp = await fetch("/api/consents/operation/sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: consentId, signatureType, signerName })
+      });
+      const data = await resp.json();
+      setOperationConsents(prev => prev.map(c => c.id === consentId ? data : c));
+    } catch (err) {
+      console.error("Failed to sign operation consent:", err);
+      setOperationConsents(prev => prev.map(c => {
+        if (c.id === consentId) {
+          const updated = { ...c };
+          if (signatureType === 'patient') {
+            updated.isSignedByPatient = true;
+            updated.patientSignatureDate = new Date().toISOString();
+          } else if (signatureType === 'witness') {
+            updated.isSignedByWitness = true;
+            if (signerName) updated.witnessName = signerName;
+          } else if (signatureType === 'surgeon') {
+            updated.isSignedBySurgeon = true;
+          }
+          if (updated.isSignedByPatient && updated.isSignedBySurgeon && updated.isSignedByWitness) {
+            updated.status = "Fully Executed";
+          }
+          return updated;
+        }
+        return c;
+      }));
+    }
+  };
+
   const handleVerifyIntegrity = async () => {
     try {
       await fetch("/api/admin/audit-verify", { method: "POST" });
@@ -467,12 +561,15 @@ export default function App() {
                 patients={patients}
                 abhaMaster={abhaMaster}
                 encounters={encounters}
+                appointments={appointments}
                 onAddPatient={handleAddPatient}
                 onScanShareRegister={handleScanShareRegister}
                 onAddAbhaMaster={(record) => handleAddRow("abha_master", record)}
                 onRefreshData={loadData}
                 sharedPatientId={sharedPatientId}
                 onSharedPatientIdChange={setSharedPatientId}
+                onAddAppointment={(record) => handleAddRow("appointments", record)}
+                onUpdateAppointment={handleUpdateAppointment}
               />
             )}
 
@@ -484,6 +581,11 @@ export default function App() {
                 hprVerifiedDoctors={hpr.filter(u => u.role === "Doctor")}
                 sharedPatientId={sharedPatientId}
                 onSharedPatientIdChange={setSharedPatientId}
+                dischargeSummaries={dischargeSummaries}
+                onAddDischargeSummary={handleAddDischargeSummary}
+                operationConsents={operationConsents}
+                onAddOperationConsent={handleCreateOperationConsent}
+                onSignOperationConsent={handleSignOperationConsent}
               />
             )}
 
@@ -531,6 +633,9 @@ export default function App() {
                 onPharmacyDispense={handleDispenseMedication}
                 onAddConsent={handleAddConsent}
                 doctors={hpr}
+                dischargeSummaries={dischargeSummaries}
+                operationConsents={operationConsents}
+                onSignOperationConsent={handleSignOperationConsent}
               />
             )}
 

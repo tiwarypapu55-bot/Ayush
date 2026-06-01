@@ -1,31 +1,38 @@
 import React, { useState, useEffect } from "react";
-import { User, QrCode, ClipboardPlus, Phone, Shield, ArrowRight, CheckCircle2, BadgeAlert, Plus, HelpCircle, Activity, Database, Copy, Check, ShieldCheck } from "lucide-react";
-import { Patient, Encounter, AbhaMaster } from "../types";
+import { User, QrCode, ClipboardPlus, Phone, Shield, ArrowRight, CheckCircle2, BadgeAlert, Plus, HelpCircle, Activity, Database, Copy, Check, ShieldCheck, Calendar, Search, Filter, Download, X, Sparkles } from "lucide-react";
+import { Patient, Encounter, AbhaMaster, Appointment } from "../types";
 import AbhaIntegrationHub from "./AbhaIntegrationHub";
+import OpdManagementPanel from "./OpdManagementPanel";
 import { supabase, checkSupabaseConnection } from "../supabaseClient";
 
 interface ReceptionistProps {
   patients: Patient[];
   abhaMaster: AbhaMaster[];
   encounters: Encounter[];
+  appointments?: Appointment[];
   onAddPatient: (patient: Patient) => void;
   onScanShareRegister: (abhaId: string, name: string) => Promise<any>;
   onAddAbhaMaster?: (record: AbhaMaster) => void;
   onRefreshData?: () => void;
   sharedPatientId?: string;
   onSharedPatientIdChange?: (id: string) => void;
+  onAddAppointment?: (record: Appointment) => void;
+  onUpdateAppointment?: (apptData: Partial<Appointment> & { id: string }) => Promise<void> | void;
 }
 
 export default function ReceptionistView({ 
   patients, 
   abhaMaster, 
   encounters, 
+  appointments = [],
   onAddPatient, 
   onScanShareRegister,
   onAddAbhaMaster,
   onRefreshData,
   sharedPatientId,
-  onSharedPatientIdChange
+  onSharedPatientIdChange,
+  onAddAppointment,
+  onUpdateAppointment
 }: ReceptionistProps) {
   // Add Patient Form State
   const [showAddForm, setShowAddForm] = useState(false);
@@ -217,7 +224,7 @@ export default function ReceptionistView({
     return true;
   });
 
-  const [activeWorkspace, setActiveWorkspace] = useState<"standard" | "abdm">("standard");
+  const [activeWorkspace, setActiveWorkspace] = useState<"standard" | "abdm" | "opd_mgmt">("opd_mgmt");
 
   return (
     <div className="space-y-6">
@@ -228,6 +235,16 @@ export default function ReceptionistView({
           <span className="text-xs font-bold font-mono text-indigo-950">OPD Core Desk Workspaces:</span>
         </div>
         <div className="flex bg-teal-900/20 rounded-lg p-1 gap-1">
+          <button
+            onClick={() => setActiveWorkspace("opd_mgmt")}
+            className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+              activeWorkspace === "opd_mgmt" 
+                ? "bg-indigo-700 text-white font-bold" 
+                : "text-indigo-950 hover:bg-white/20"
+            }`}
+          >
+            🎟️ OPD Management
+          </button>
           <button
             onClick={() => setActiveWorkspace("standard")}
             className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
@@ -259,6 +276,18 @@ export default function ReceptionistView({
           onAddPatient={onAddPatient}
           onAddAbhaMaster={onAddAbhaMaster}
           onRefreshData={onRefreshData}
+        />
+      ) : activeWorkspace === "opd_mgmt" ? (
+        <OpdManagementPanel
+          patients={patients}
+          appointments={appointments}
+          onAddAppointment={onAddAppointment || (() => {})}
+          onUpdateAppointment={onUpdateAppointment || (() => {})}
+          onAddPatient={onAddPatient}
+          onSwitchToStandardRegister={() => {
+            setActiveWorkspace("standard");
+            setShowAddForm(true);
+          }}
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="reception-view-container">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Stethoscope, FileJson, Heart, CheckCircle2, User, Sparkles, Plus, Trash2, Code, ShieldCheck, AlertTriangle, Search, Printer, Activity, Eye, Edit, ClipboardList, X } from "lucide-react";
-import { Patient, Encounter, DiagnosisCode, Medication } from "../types";
+import { Patient, Encounter, DiagnosisCode, Medication, DischargeSummary, OperationConsent } from "../types";
 
 interface DoctorViewProps {
   patients: Patient[];
@@ -9,6 +9,11 @@ interface DoctorViewProps {
   hprVerifiedDoctors: { id: string; name: string; abdmNumber: string; specialty: string }[];
   sharedPatientId?: string;
   onSharedPatientIdChange?: (id: string) => void;
+  dischargeSummaries?: DischargeSummary[];
+  onAddDischargeSummary?: (record: DischargeSummary) => void;
+  operationConsents?: OperationConsent[];
+  onAddOperationConsent?: (record: OperationConsent) => void;
+  onSignOperationConsent?: (consentId: string, signatureType: 'patient' | 'witness' | 'surgeon', signerName?: string) => void;
 }
 
 const COMMON_DIAGNOSES: DiagnosisCode[] = [
@@ -33,7 +38,12 @@ export default function DoctorView({
   onAddEncounter, 
   hprVerifiedDoctors,
   sharedPatientId,
-  onSharedPatientIdChange
+  onSharedPatientIdChange,
+  dischargeSummaries = [],
+  onAddDischargeSummary = () => {},
+  operationConsents = [],
+  onAddOperationConsent = () => {},
+  onSignOperationConsent = () => {}
 }: DoctorViewProps) {
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
   const selectedDoctor = hprVerifiedDoctors.find(d => d.id === selectedDoctorId) || hprVerifiedDoctors[0] || {
@@ -57,6 +67,63 @@ export default function DoctorView({
     }
   };
   
+  // New local form states for Discharge Builder
+  const [dscAdmissionDate, setDscAdmissionDate] = useState("2026-05-25T10:00");
+  const [dscDischargeDate, setDscDischargeDate] = useState("2026-05-31T12:00");
+  const [dscComplaint, setDscComplaint] = useState("");
+  const [dscDiagnosis, setDscDiagnosis] = useState("");
+  const [dscTreatment, setDscTreatment] = useState("");
+  const [dscCondition, setDscCondition] = useState("Recovered");
+  const [dscFollowUpDate, setDscFollowUpDate] = useState("2026-06-15T10:00");
+  const [dscFollowUpInst, setDscFollowUpInst] = useState("Review in OPD with blood panel count. Continue medication.");
+  const [dscMeds, setDscMeds] = useState<Medication[]>([]);
+  const [dscMedName, setDscMedName] = useState("");
+  const [dscMedDose, setDscMedDose] = useState("1 Tab (After Food)");
+  const [dscMedFreq, setDscMedFreq] = useState("1-0-1");
+  const [dscMedDur, setDscMedDur] = useState("10 Days");
+
+  const addDscMed = () => {
+    if (!dscMedName) return;
+    setDscMeds([...dscMeds, { 
+      medicine: dscMedName, 
+      generic: "Generic Formula", 
+      dosage: dscMedDose, 
+      frequency: dscMedFreq, 
+      duration: dscMedDur,
+      instructions: "Take as prescribed after food",
+      substitutionAllowed: true
+    }]);
+    setDscMedName("");
+  };
+
+  const removeDscMed = (idx: number) => {
+    setDscMeds(dscMeds.filter((_, i) => i !== idx));
+  };
+
+  // New local form states for Operation Consent
+  const [cnsGuardian, setCnsGuardian] = useState("");
+  const [cnsProcedure, setCnsProcedure] = useState("Laparoscopic Cholecystectomy");
+  const [cnsIndication, setCnsIndication] = useState("Gallbladder calculus with recurrent acute cholecystitis");
+  const [cnsRisks, setCnsRisks] = useState<string[]>([
+    "Major haemorrhage requiring blood transfusion",
+    "Accidental injury to adjacent main bile duct requiring surgical reconstruction",
+    "Wound infection or localized intra-abdominal abscess formation",
+    "Post-operative deep vein thrombosis or pulmonary embolism"
+  ]);
+  const [cnsRiskWord, setCnsRiskWord] = useState("");
+  const [cnsAlternative, setCnsAlternative] = useState("Conservative antibiotics and analgesics on recurrence (high relapse rate).");
+  const [cnsWitness, setCnsWitness] = useState("");
+
+  const addRiskFactor = () => {
+    if (!cnsRiskWord) return;
+    setCnsRisks([...cnsRisks, cnsRiskWord]);
+    setCnsRiskWord("");
+  };
+
+  const removeRiskFactor = (idx: number) => {
+    setCnsRisks(cnsRisks.filter((_, i) => i !== idx));
+  };
+
   // Encounter Form states
   const [complaints, setComplaints] = useState("");
   const [allergies, setAllergies] = useState("NKA (No Known Allergies)");
@@ -89,7 +156,7 @@ export default function DoctorView({
   const [activeEncounterForFhir, setActiveEncounterForFhir] = useState<Encounter | null>(encounters[0] || null);
   const [fhirBundleJson, setFhirBundleJson] = useState<any>(null);
   const [isFHIRSyncing, setIsFHIRSyncing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "encounter" | "clinical-history">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "encounter" | "clinical-history" | "discharge" | "consent">("dashboard");
   const [opdSearchQuery, setOpdSearchQuery] = useState("");
   const [opdFilterMyDeptOnly, setOpdFilterMyDeptOnly] = useState(false);
   const [printEncounter, setPrintEncounter] = useState<Encounter | null>(null);
@@ -315,6 +382,22 @@ export default function DoctorView({
           >
             📂 Longitudinal EMR EHR File Cabinet ({encounters.length})
           </button>
+          <button
+            onClick={() => setActiveTab("discharge")}
+            className={`flex-1 py-1.5 px-3 rounded-md text-xs font-bold transition ${
+              activeTab === "discharge" ? "bg-white text-slate-950 shadow-xs border-b-2 border-teal-600" : "text-slate-505 hover:text-slate-800"
+            }`}
+          >
+            📝 Patient Discharge Summary
+          </button>
+          <button
+            onClick={() => setActiveTab("consent")}
+            className={`flex-1 py-1.5 px-3 rounded-md text-xs font-bold transition ${
+              activeTab === "consent" ? "bg-white text-slate-950 shadow-xs border-b-2 border-teal-600" : "text-slate-505 hover:text-slate-800"
+            }`}
+          >
+            🛡️ Operation Consent Form
+          </button>
         </div>
 
         {activeTab === "dashboard" && (
@@ -418,7 +501,7 @@ export default function DoctorView({
           </div>
         )}
 
-        {activeTab === "encounter" ? (
+        {activeTab === "encounter" && (
           <div className="space-y-6">
             <form onSubmit={handleEncounterCommit} className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-6" id="emr-consultation-form">
             <h4 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-2">New OPD Consultation Intake Sheet</h4>
@@ -939,7 +1022,9 @@ export default function DoctorView({
             </div>
           </div>
         </div>
-        ) : (
+        )}
+
+        {activeTab === "clinical-history" && (
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
             <h4 className="text-sm font-bold text-slate-800 border-b pb-2">Facility-Wide Longitudinal Health Records Repository</h4>
             <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
@@ -980,6 +1065,586 @@ export default function DoctorView({
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "discharge" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-6">
+              <h4 className="text-base font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
+                <span>📝 NABH Compliant Clinical Discharge Summary Builder</span>
+              </h4>
+
+              {/* Form elements */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Target Patient</label>
+                  <select
+                    value={selectedPatientId}
+                    onChange={(e) => handleSelectPatient(e.target.value)}
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-slate-50 font-semibold outline-hidden"
+                  >
+                    {patients.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Admission Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={dscAdmissionDate}
+                    onChange={(e) => setDscAdmissionDate(e.target.value)}
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Discharge Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={dscDischargeDate}
+                    onChange={(e) => setDscDischargeDate(e.target.value)}
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Chief Complaint at Admission</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Enter patient chief complaints..."
+                    value={dscComplaint}
+                    onChange={(e) => setDscComplaint(e.target.value)}
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Final Diagnosis (ICD Standard Compliant)</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Enter primary and secondary diagnoses..."
+                    value={dscDiagnosis}
+                    onChange={(e) => setDscDiagnosis(e.target.value)}
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Clinical Treatment / Procedures Administered</label>
+                <textarea
+                  rows={2}
+                  placeholder="Detail conservative medical therapy, blood transfusions, laparoscopic findings, etc..."
+                  value={dscTreatment}
+                  onChange={(e) => setDscTreatment(e.target.value)}
+                  className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                />
+              </div>
+
+              {/* Condition / Follow Up instructions */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Condition at Discharge</label>
+                  <select
+                    value={dscCondition}
+                    onChange={(e) => setDscCondition(e.target.value)}
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-slate-50 font-semibold outline-hidden"
+                  >
+                    <option value="Recovered">Stable & Recovered</option>
+                    <option value="Improved">Improved (Discharged on Medications)</option>
+                    <option value="Stable">Stable</option>
+                    <option value="Against Medical Advice">Left Against Medical Advice (LAMA)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Tentative Follow-Up Date</label>
+                  <input
+                    type="datetime-local"
+                    value={dscFollowUpDate}
+                    onChange={(e) => setDscFollowUpDate(e.target.value)}
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Follow-Up Care Instructions</label>
+                  <input
+                    type="text"
+                    value={dscFollowUpInst}
+                    onChange={(e) => setDscFollowUpInst(e.target.value)}
+                    placeholder="e.g., return to emergency if chest pain recurs"
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                  />
+                </div>
+              </div>
+
+              {/* Prescriptions on Discharge */}
+              <div className="border border-slate-200 rounded-lg p-4 space-y-3 bg-slate-50/50">
+                <span className="block text-[10px] font-serif uppercase tracking-widest text-slate-500 font-bold border-b pb-1">Discharge Outpatient Medications List</span>
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[8px] text-slate-500 font-bold mb-1">Medicine Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Ecosprin 75"
+                      value={dscMedName}
+                      onChange={(e) => setDscMedName(e.target.value)}
+                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white"
+                    />
+                  </div>
+                  <div className="w-32">
+                    <label className="block text-[8px] text-slate-500 font-bold mb-1 font-mono">Dosage</label>
+                    <input
+                      type="text"
+                      value={dscMedDose}
+                      onChange={(e) => setDscMedDose(e.target.value)}
+                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <label className="block text-[8px] text-slate-500 font-bold mb-1">Frequency</label>
+                    <input
+                      type="text"
+                      value={dscMedFreq}
+                      onChange={(e) => setDscMedFreq(e.target.value)}
+                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <label className="block text-[8px] text-slate-500 font-bold mb-1">Duration</label>
+                    <input
+                      type="text"
+                      value={dscMedDur}
+                      onChange={(e) => setDscMedDur(e.target.value)}
+                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addDscMed}
+                    className="bg-slate-900 text-white text-xs px-3.5 py-2.5 rounded-lg font-bold hover:bg-slate-800 transition shadow-xs"
+                  >
+                    + Add Drug
+                  </button>
+                </div>
+
+                {dscMeds.length > 0 && (
+                  <div className="overflow-x-auto border rounded-md">
+                    <table className="w-full text-left text-xs divide-y">
+                      <thead className="bg-slate-100 text-[10px] text-slate-500 uppercase font-bold">
+                        <tr>
+                          <th className="p-2">Drug Title</th>
+                          <th className="p-2">Dosage Instructions</th>
+                          <th className="p-2">Duration</th>
+                          <th className="p-2 text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y bg-white">
+                        {dscMeds.map((m, i) => (
+                          <tr key={i} className="hover:bg-slate-50 text-[11px]">
+                            <td className="p-2 font-bold text-slate-900">{m.medicine}</td>
+                            <td className="p-2 font-mono">{m.dosage}</td>
+                            <td className="p-2">{m.duration}</td>
+                            <td className="p-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => removeDscMed(i)}
+                                className="text-red-500 font-bold hover:underline"
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-between items-center border-t pt-5">
+                <div className="text-xs text-slate-500">
+                  Signing Authenticated HPR Key: <strong className="font-mono text-indigo-700">{selectedDoctor.abdmNumber}</strong>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const patientObj = patients.find(p => p.id === selectedPatientId);
+                    if (!patientObj) return;
+
+                    const summary: DischargeSummary = {
+                      id: "DSC-8" + Math.floor(100 + Math.random() * 899),
+                      patientId: selectedPatientId,
+                      patientName: patientObj.name,
+                      admissionDate: new Date(dscAdmissionDate).toISOString(),
+                      dischargeDate: new Date(dscDischargeDate).toISOString(),
+                      doctorName: selectedDoctor.name,
+                      department: selectedDoctor.specialty,
+                      chiefComplaint: dscComplaint || "Admitted with medical complaints.",
+                      diagnosis: dscDiagnosis || "Essential clinical diagnosis.",
+                      treatmentGiven: dscTreatment || "Conservative standard pharmacotherapy.",
+                      conditionAtDischarge: dscCondition,
+                      medications: dscMeds,
+                      followUpDate: new Date(dscFollowUpDate).toISOString(),
+                      followUpInstructions: dscFollowUpInst,
+                      signedByDoctor: true,
+                      doctorAbdmNumber: selectedDoctor.abdmNumber,
+                      createdAt: new Date().toISOString()
+                    };
+
+                    onAddDischargeSummary(summary);
+                    // clear fields
+                    setDscComplaint("");
+                    setDscDiagnosis("");
+                    setDscTreatment("");
+                    setDscMeds([]);
+                    alert("Discharge Summary generated and pinned to patient's Longitudinal EHR Bundle!");
+                  }}
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs py-2.5 px-5 rounded-lg shadow-xs transition"
+                >
+                  🔐 Complete & Sign ABDM Discharge Summary
+                </button>
+              </div>
+            </div>
+
+            {/* Historical list of summaries */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
+              <h5 className="font-bold text-slate-900 border-b pb-1.5 text-sm uppercase">Active Hospital Discharge Summary Registry</h5>
+              {dischargeSummaries.length === 0 ? (
+                <p className="text-xs text-slate-400">No discharge logs on files.</p>
+              ) : (
+                <div className="space-y-4">
+                  {dischargeSummaries.map((summary) => (
+                    <div key={summary.id} className="border border-slate-200 rounded-lg p-5 bg-slate-50/50 hover:bg-white transition relative">
+                      <span className="absolute top-4 right-4 text-[10px] bg-slate-900 text-white p-1 rounded-sm font-mono font-extrabold">{summary.id}</span>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Stethoscope className="h-4.5 w-4.5 text-teal-650" />
+                          <h6 className="font-extrabold text-slate-950 text-sm">{summary.patientName} ({summary.patientId})</h6>
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded border ${
+                            summary.conditionAtDischarge === "Recovered" ? "bg-green-100 text-green-800 border-green-200" : "bg-teal-100 text-teal-800 border-teal-200"
+                          }`}>{summary.conditionAtDischarge}</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-medium text-slate-600">
+                          <p><strong>Admission Key:</strong> {new Date(summary.admissionDate).toLocaleString()}</p>
+                          <p><strong>Discharge Key:</strong> {new Date(summary.dischargeDate).toLocaleString()}</p>
+                          <p><strong>Assigned Surgeon:</strong> {summary.doctorName}</p>
+                          <p className="font-mono font-bold"><strong>Verified HPR Key:</strong> {summary.doctorAbdmNumber}</p>
+                        </div>
+
+                        <div className="text-xs text-slate-700 bg-white border rounded-lg p-3 space-y-2">
+                          <p><strong>Principal Diagnoses:</strong> {summary.diagnosis}</p>
+                          <p><strong>Course of Action Context:</strong> {summary.treatmentGiven}</p>
+                          {summary.medications && summary.medications.length > 0 && (
+                            <div>
+                              <strong className="block text-[10px] text-slate-400 uppercase tracking-widest mt-1">Discharged outpatient therapeutic regimen:</strong>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {summary.medications.map((m, idx) => (
+                                  <span key={idx} className="bg-slate-100 text-slate-800 border font-bold px-2 py-0.5 rounded-md text-[10.5px]">
+                                    💊 {m.medicine} • {m.dosage} for {m.duration}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Print preview action */}
+                        <div className="flex justify-between items-center text-[11px] pt-2">
+                          <span className="text-slate-400">Authorized: {new Date(summary.createdAt).toLocaleDateString()}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const mockEncounter: Encounter = {
+                                id: summary.id,
+                                patientId: summary.patientId,
+                                patientName: summary.patientName,
+                                doctorId: summary.doctorAbdmNumber,
+                                doctorName: summary.doctorName,
+                                department: summary.department,
+                                date: summary.dischargeDate,
+                                chiefComplaints: `DISCHARGE SUMMARY INTAKE\n\nCHIEF COMPLAINT: ${summary.chiefComplaint}\nCOURSES: ${summary.treatmentGiven}`,
+                                vitals: { bp: "120/80", pulse: 74, temp: 98.4, spo2: 100, respRate: 16 },
+                                soapNotes: {
+                                  subjective: `Targeted clinical review during discharge phase.`,
+                                  objective: `At discharge: ${summary.conditionAtDischarge}.`,
+                                  assessment: `Critical Diagnoses: ${summary.diagnosis}`,
+                                  plan: `Instruction: ${summary.followUpInstructions}`
+                                },
+                                diagnoses: [
+                                  { code: "DSC-CARD", display: summary.diagnosis, system: "ICD-10" }
+                                ],
+                                prescriptions: (summary.medications || []).map(m => ({
+                                  medicine: m.medicine,
+                                  generic: m.generic || "Generic formulation",
+                                  dosage: m.dosage,
+                                  frequency: "1-0-1",
+                                  duration: m.duration,
+                                  instructions: "As directed by physician",
+                                  substitutionAllowed: true
+                                })),
+                                labOrders: [],
+                                treatmentStatus: "Discharged"
+                              };
+                              setPrintEncounter(mockEncounter);
+                            }}
+                            className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3.5 py-1.5 border border-indigo-200 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                          >
+                            <Printer className="h-3.5 w-3.5" /> View Compliant Discharge Card Specimen
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "consent" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-6">
+              <h4 className="text-base font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
+                <span>🛡️ ABDM Legally Binding Patient Operation Consent Proposer</span>
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1 font-mono">Target Patient</label>
+                  <select
+                    value={selectedPatientId}
+                    onChange={(e) => handleSelectPatient(e.target.value)}
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-slate-50 font-semibold outline-hidden"
+                  >
+                    {patients.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Guardian Name (Co-Signer)</label>
+                  <input
+                    type="text"
+                    value={cnsGuardian}
+                    onChange={(e) => setCnsGuardian(e.target.value)}
+                    placeholder="e.g. Sanjay Patel"
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Attending Surgeon</label>
+                  <input
+                    type="text"
+                    value={selectedDoctor.name}
+                    disabled
+                    className="w-full text-xs border border-slate-350 bg-slate-100 rounded-lg p-2 font-semibold text-slate-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1 font-mono">Proposed Surgery / Invasive Procedure</label>
+                  <input
+                    type="text"
+                    value={cnsProcedure}
+                    onChange={(e) => setCnsProcedure(e.target.value)}
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Clinical Indication for Intervention</label>
+                  <input
+                    type="text"
+                    value={cnsIndication}
+                    onChange={(e) => setCnsIndication(e.target.value)}
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Alternative Clinically Accepted Treatments</label>
+                <textarea
+                  rows={2}
+                  value={cnsAlternative}
+                  onChange={(e) => setCnsAlternative(e.target.value)}
+                  className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                />
+              </div>
+
+              {/* Explained Risks List */}
+              <div className="border border-slate-200 rounded-lg p-4 space-y-3 bg-slate-50/50">
+                <span className="block text-[10px] font-serif uppercase tracking-widest text-slate-500 font-bold border-b pb-1">Primary Surgical Risk Disclosures (Fully Explained to Patient)</span>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    placeholder="Describe specific key hazard risk..."
+                    value={cnsRiskWord}
+                    onChange={(e) => setCnsRiskWord(e.target.value)}
+                    className="flex-1 text-xs border border-slate-300 rounded-lg p-2 bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={addRiskFactor}
+                    className="bg-slate-900 text-white text-xs px-3.5 py-2 rounded-lg font-bold hover:bg-slate-800 transition shrink-0"
+                  >
+                    Add Risk Clause
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 pl-2">
+                  {cnsRisks.map((r, i) => (
+                    <div key={i} className="flex justify-between items-center bg-white p-1.5 px-3 rounded-md border text-xs text-slate-700">
+                      <span>• {r}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeRiskFactor(i)}
+                        className="text-red-500 font-bold hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Independent Witness Name</label>
+                  <input
+                    type="text"
+                    value={cnsWitness}
+                    onChange={(e) => setCnsWitness(e.target.value)}
+                    placeholder="e.g. Amit Sharma (Medical Coordinator)"
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const patientObj = patients.find(p => p.id === selectedPatientId);
+                      if (!patientObj) return;
+
+                      const consent: OperationConsent = {
+                        id: "CNS-3" + Math.floor(100 + Math.random() * 899),
+                        patientId: selectedPatientId,
+                        patientName: patientObj.name,
+                        guardianName: cnsGuardian || patientObj.guardianName || "N/A",
+                        proposerDoctorName: selectedDoctor.name,
+                        surgeonName: selectedDoctor.name,
+                        procedureName: cnsProcedure,
+                        indicationForSurgery: cnsIndication,
+                        risksExplained: cnsRisks,
+                        alternativeTreatments: cnsAlternative,
+                        witnessName: cnsWitness || "Medical Staff Agent",
+                        isSignedByPatient: false,
+                        patientSignatureDate: null,
+                        isSignedByWitness: false,
+                        isSignedBySurgeon: true, // Signed by surgeon upon creation
+                        status: "Pending Patient Signature",
+                        createdAt: new Date().toISOString()
+                      };
+
+                      onAddOperationConsent(consent);
+                      // Clear helper
+                      setCnsGuardian("");
+                      alert(`Informed Surgical Consent Log ${consent.id} initiated! Form transmitted successfully to Patient's digital portal for signature routing.`);
+                    }}
+                    className="w-full bg-slate-900 border border-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 px-5 rounded-lg shadow-sm transition"
+                  >
+                    🛡️ Sign as Proposing Surgeon & Broadcast Form
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Consents list */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
+              <h5 className="font-bold text-slate-900 border-b pb-1.5 text-sm uppercase">Active Operation Consent Audit Ledger</h5>
+              {operationConsents.length === 0 ? (
+                <p className="text-xs text-slate-400">No active consents on file.</p>
+              ) : (
+                <div className="space-y-4">
+                  {operationConsents.map((consent) => (
+                    <div key={consent.id} className="border border-slate-200 rounded-lg p-5 bg-slate-50/50 hover:bg-white transition relative">
+                      <span className={`absolute top-4 right-4 text-[10.5px] font-black px-2 py-0.5 rounded border ${
+                        consent.status === "Fully Executed" ? "bg-green-100 text-green-800 border-green-200" : "bg-amber-100 text-amber-800 border-amber-20 border-amber-220"
+                      }`}>{consent.status}</span>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="h-4.5 w-4.5 text-indigo-750" />
+                          <h6 className="font-extrabold text-slate-950 text-sm">Informed Waiver Key: {consent.procedureName}</h6>
+                        </div>
+
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-medium text-slate-650">
+                          <p><strong>Patient Holder:</strong> {consent.patientName} ({consent.patientId})</p>
+                          <p><strong>Proposed Surgeon:</strong> {consent.surgeonName}</p>
+                          <p><strong>Waiver Proposer:</strong> {consent.proposerDoctorName}</p>
+                          <p><strong>Independent Witness:</strong> {consent.witnessName || "unassigned"}</p>
+                        </div>
+
+                        {/* Legal Disclosures */}
+                        <div className="text-xs text-slate-700 bg-white border rounded-lg p-3 space-y-2">
+                          <p><strong>Indication context:</strong> {consent.indicationForSurgery}</p>
+                          <div>
+                            <strong className="block text-[10px] text-red-650 uppercase tracking-widest mb-1 font-mono">Discovered Risk Disclosures:</strong>
+                            <ul className="list-disc pl-5 space-y-0.5">
+                              {consent.risksExplained.map((rk, idx) => (
+                                <li key={idx}> {rk}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+
+                        {/* Signature State Tracker */}
+                        <div className="grid grid-cols-3 gap-2 border-t pt-3">
+                          <div className="p-2 border rounded bg-white text-center">
+                            <span className="block text-[8px] text-slate-400 uppercase tracking-wider">Surgeon Signature</span>
+                            <span className="text-xs font-bold text-emerald-800">✓ Fully Executed</span>
+                          </div>
+                          <div className="p-2 border rounded bg-white text-center">
+                            <span className="block text-[8px] text-slate-400 uppercase tracking-wider">Patient Co-sign</span>
+                            <span className={`text-xs font-bold ${consent.isSignedByPatient ? 'text-emerald-800' : 'text-rose-700'}`}>
+                              {consent.isSignedByPatient ? '✓ Signed via Secure ID' : '⏳ Signature Pending'}
+                            </span>
+                          </div>
+                          <div className="p-2 border rounded bg-white text-center">
+                            <span className="block text-[8px] text-slate-400 uppercase tracking-wider">Independent Witness</span>
+                            <span className={`text-xs font-bold ${consent.isSignedByWitness ? 'text-emerald-800' : 'text-rose-700'}`}>
+                              {consent.isSignedByWitness ? '✓ Verified' : '⏳ Signature Pending'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Co-signing witness panel directly */}
+                        {!consent.isSignedByWitness && (
+                          <div className="bg-amber-50 p-3 rounded-lg border border-amber-200 flex justify-between items-center text-xs">
+                            <div className="text-amber-800 font-medium">
+                              Witness Signature is needed to completely wrap patient informed waiver.
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onSignOperationConsent(consent.id, "witness", "Clinical Supervisor Sharma");
+                                alert("Witness signature recorded successfully in security logs!");
+                              }}
+                              className="bg-amber-600 text-white font-bold px-3 py-1.5 rounded hover:bg-amber-700 transition shadow-2xs text-[11px]"
+                            >
+                              ✒️ Co-Sign on Witness Clipboard
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

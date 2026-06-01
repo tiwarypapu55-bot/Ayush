@@ -12,3 +12,24 @@
 .bg-image2-coral {
   background-color: rgb(231, 121, 104);
 }
+
+/* Elegant styled custom horizontal scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(165, 180, 252, 0.15); /* very light transparent indigo */
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.45); /* semi-transparent indigo-500 */
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(79, 70, 229, 0.82); /* indigo-600 */
+}
+

@@ -6,7 +6,7 @@ import {
   RefreshCw, Layers, Sliders, CheckCircle2, ChevronRight, ShoppingBag, Info, Search, FileText,
   QrCode, Printer, Phone, CreditCard, Download
 } from "lucide-react";
-import { Patient, Encounter, ConsentLog, HospitalBed, Medication } from "../types";
+import { Patient, Encounter, ConsentLog, HospitalBed, Medication, DischargeSummary, OperationConsent } from "../types";
 
 interface AncillaryViewsProps {
   currentRole: "LabStaff" | "Pharmacy" | "Patient" | "Billing";
@@ -18,6 +18,9 @@ interface AncillaryViewsProps {
   onPharmacyDispense: (encounterId: string, medicineIndex: number) => void;
   onAddConsent: (consent: ConsentLog) => void;
   doctors?: any[];
+  dischargeSummaries?: DischargeSummary[];
+  operationConsents?: OperationConsent[];
+  onSignOperationConsent?: (consentId: string, signatureType: 'patient' | 'witness' | 'surgeon', signerName?: string) => void;
 }
 
 const CDSCO_NATIONAL_FORMULARY = [
@@ -36,7 +39,10 @@ const CDSCO_NATIONAL_FORMULARY = [
 ];
 
 export default function AncillaryViews({ 
-  currentRole, patients, encounters, beds, consents, onLabSubmit, onPharmacyDispense, onAddConsent, doctors = [] 
+  currentRole, patients, encounters, beds, consents, onLabSubmit, onPharmacyDispense, onAddConsent, doctors = [],
+  dischargeSummaries = [],
+  operationConsents = [],
+  onSignOperationConsent = () => {}
 }: AncillaryViewsProps) {
   // Submenu Navigation State
   const [lisSubTab, setLisSubTab] = useState<"entry" | "pacs" | "accession" | "quality">("entry");
@@ -1779,6 +1785,63 @@ export default function AncillaryViews({
                     </p>
                   </div>
                 )}
+
+                {/* DISCHARGE SUMMARIES LOG */}
+                <div className="border-t pt-6 space-y-4">
+                  <span className="text-xs font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-1.5 border-b pb-1">
+                    <FileText className="h-4 w-4 text-teal-600" /> Personal ABDM Discharge Card Records ({dischargeSummaries.filter(d => d.patientId === selectedPatientId).length})
+                  </span>
+
+                  {dischargeSummaries.filter(d => d.patientId === selectedPatientId).length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {dischargeSummaries.filter(d => d.patientId === selectedPatientId).map(summary => (
+                        <div key={summary.id} className="border border-slate-200 p-5 rounded-xl bg-white space-y-4 hover:shadow-lg transition relative">
+                          <span className="absolute top-4 right-4 text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-mono font-bold">DISCHARGE CARD</span>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-slate-900">Hospital Discharge Summary Ref: {summary.id}</h4>
+                          </div>
+
+                          <div className="text-xs text-slate-600 space-y-1 bg-slate-50 p-3 rounded-lg border">
+                            <p><strong>Admission Date:</strong> {new Date(summary.admissionDate).toLocaleString()}</p>
+                            <p><strong>Discharge Date:</strong> {new Date(summary.dischargeDate).toLocaleString()}</p>
+                            <p><strong>Discharging Doctor:</strong> {summary.doctorName} ({summary.department})</p>
+                            <p className="border-t pt-1.5 mt-1.5 text-[11px]"><strong>Diagnosis:</strong> {summary.diagnosis}</p>
+                            <p className="text-[11px]"><strong>Treatment Rendered:</strong> {summary.treatmentGiven}</p>
+                            <p className="text-[11px]"><strong>Condition at Release:</strong> <span className="font-extrabold text-teal-700">{summary.conditionAtDischarge}</span></p>
+                          </div>
+
+                          {summary.medications && summary.medications.length > 0 && (
+                            <div className="text-xs bg-indigo-50/20 border border-indigo-100/50 p-2.5 rounded-lg">
+                              <span className="font-black text-[10px] text-indigo-700 uppercase block mb-1">Discharge Take-home Medications:</span>
+                              <div className="space-y-1">
+                                {summary.medications.map((m, idx) => (
+                                  <p key={idx} className="font-mono text-[10.5px]">• {m.medicine} - {m.dosage} ({m.duration})</p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex justify-between items-center text-[10px] text-slate-400 border-t pt-2 mt-1">
+                            <span>HPR HCTS No: {summary.doctorAbdmNumber}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                alert(`Opening official government health locker share portal for summary ${summary.id}...`);
+                              }}
+                              className="text-[10px] font-extrabold text-indigo-600 hover:underline"
+                            >
+                              Sync with Digilocker ABHA
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center p-6 bg-slate-50 border rounded-lg max-w-md mx-auto text-xs text-slate-500">
+                      No active discharge summaries recorded for your session.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1913,6 +1976,73 @@ export default function AncillaryViews({
                           </div>
                         ))}
                       </div>
+                    </div>
+
+                    {/* OPERATION / INVASIVE PROCEDURE CONSENT WIARVERS LIST FOR THE CURRENT PATIENT */}
+                    <div className="bg-white p-5 rounded-2xl border space-y-4 shadow-2xs">
+                      <span className="block text-xs font-extrabold text-slate-500 uppercase tracking-widest pb-1 border-b flex items-center gap-2">
+                        <ShieldCheck className="h-4.5 w-4.5 text-indigo-750" /> Surgical Intervention Consent Waivers ({operationConsents.filter(o => o.patientId === selectedPatientId).length})
+                      </span>
+
+                      {operationConsents.filter(o => o.patientId === selectedPatientId).length > 0 ? (
+                        <div className="space-y-4">
+                          {operationConsents.filter(o => o.patientId === selectedPatientId).map((consent) => (
+                            <div key={consent.id} className="border border-slate-200 p-4 rounded-xl space-y-3 relative bg-slate-50">
+                              <span className={`absolute top-4 right-4 text-[9.5px] font-black px-2 py-0.5 rounded border ${
+                                consent.status === "Fully Executed" ? "bg-green-100 text-green-800 border-green-200" : "bg-amber-100 text-amber-800 border-amber-200"
+                              }`}>{consent.status}</span>
+
+                              <div>
+                                <h6 className="font-extrabold text-slate-900 text-xs">Proposed Procedure: {consent.procedureName}</h6>
+                                <p className="text-[10px] text-slate-500">Proposing Surgeon: Dr. {consent.surgeonName}</p>
+                              </div>
+
+                              <div className="text-xs text-slate-650 bg-white p-3 rounded border space-y-2">
+                                <p><strong>Indication context:</strong> {consent.indicationForSurgery}</p>
+                                <p><strong>Alternative treatments discussed:</strong> {consent.alternativeTreatments || "None discussed"}</p>
+                                <div>
+                                  <span className="text-[10px] text-red-650 font-bold block uppercase mb-1">Explained Risks & Hazards:</span>
+                                  <ul className="list-disc pl-5 text-[10.5px] space-y-0.5">
+                                    {consent.risksExplained.map((rk, idx) => (
+                                      <li key={idx}> {rk}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+
+                              {/* Signature elements */}
+                              <div className="grid grid-cols-2 gap-3 pt-2">
+                                <div className="p-2 border rounded-lg bg-white relative">
+                                  <span className="block text-[8px] text-slate-400 font-bold uppercase mb-1">Patient Holder e-Sign</span>
+                                  {consent.isSignedByPatient ? (
+                                    <span className="text-xs font-bold text-green-700 block">✓ e-Signed on {consent.patientSignatureDate ? new Date(consent.patientSignatureDate).toLocaleDateString() : ""}</span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        onSignOperationConsent(consent.id, "patient", activePatientObj?.name);
+                                        alert("Informed Surgical Consent e-signed successfully using secure Aadhaar/ABDM OTP gateway!");
+                                      }}
+                                      className="w-full bg-indigo-600 text-white font-extrabold py-1.5 rounded hover:bg-indigo-700 transition text-[10.5px]"
+                                    >
+                                      🖋️ Click to OTP e-Sign Now
+                                    </button>
+                                  )}
+                                </div>
+
+                                <div className="p-2 border rounded-lg bg-white text-center">
+                                  <span className="block text-[8px] text-slate-400 font-bold uppercase mb-1">Witness e-Sign</span>
+                                  <span className={`text-xs font-bold ${consent.isSignedByWitness ? "text-green-700" : "text-amber-750"}`}>
+                                    {consent.isSignedByWitness ? "✓ Witness Co-Signed" : "⏳ Awaiting Witness Sign"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-400">No active surgical or invasive consents are proposed for your ABHA profile currently.</p>
+                      )}
                     </div>
                   </div>
                 </div>
