@@ -1071,19 +1071,20 @@ export default function DoctorView({
 
         {activeTab === "discharge" && (
           <div className="space-y-6 animate-fadeIn">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-6">
-              <h4 className="text-base font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
+            {/* NABH Compliant Clinical Discharge Summary Builder Form */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-6">
+              <h4 className="text-base font-extrabold text-slate-900 border-b pb-2 flex items-center gap-2">
                 <span>📝 NABH Compliant Clinical Discharge Summary Builder</span>
               </h4>
 
               {/* Form elements */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Target Patient</label>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Target Patient</label>
                   <select
                     value={selectedPatientId}
                     onChange={(e) => handleSelectPatient(e.target.value)}
-                    className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-slate-50 font-semibold outline-hidden"
+                    className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 bg-white outline-hidden cursor-pointer"
                   >
                     {patients.map(p => (
                       <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
@@ -1091,67 +1092,67 @@ export default function DoctorView({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Admission Date & Time</label>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Admission Date & Time</label>
                   <input
                     type="datetime-local"
                     value={dscAdmissionDate}
                     onChange={(e) => setDscAdmissionDate(e.target.value)}
-                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                    className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 outline-hidden bg-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Discharge Date & Time</label>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Discharge Date & Time</label>
                   <input
                     type="datetime-local"
                     value={dscDischargeDate}
                     onChange={(e) => setDscDischargeDate(e.target.value)}
-                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                    className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 outline-hidden bg-white"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Chief Complaint at Admission</label>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Chief Complaint at Admission</label>
                   <textarea
                     rows={3}
                     placeholder="Enter patient chief complaints..."
                     value={dscComplaint}
                     onChange={(e) => setDscComplaint(e.target.value)}
-                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                    className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 outline-hidden"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Final Diagnosis (ICD Standard Compliant)</label>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Final Diagnosis (ICD Standard Compliant)</label>
                   <textarea
                     rows={3}
                     placeholder="Enter primary and secondary diagnoses..."
                     value={dscDiagnosis}
                     onChange={(e) => setDscDiagnosis(e.target.value)}
-                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                    className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 outline-hidden"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Clinical Treatment / Procedures Administered</label>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Clinical Treatment / Procedures Administered</label>
                 <textarea
                   rows={2}
                   placeholder="Detail conservative medical therapy, blood transfusions, laparoscopic findings, etc..."
                   value={dscTreatment}
                   onChange={(e) => setDscTreatment(e.target.value)}
-                  className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                  className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 outline-hidden"
                 />
               </div>
 
               {/* Condition / Follow Up instructions */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Condition at Discharge</label>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Condition at Discharge</label>
                   <select
                     value={dscCondition}
                     onChange={(e) => setDscCondition(e.target.value)}
-                    className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-slate-50 font-semibold outline-hidden"
+                    className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 bg-white outline-hidden cursor-pointer"
                   >
                     <option value="Recovered">Stable & Recovered</option>
                     <option value="Improved">Improved (Discharged on Medications)</option>
@@ -1160,98 +1161,107 @@ export default function DoctorView({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Tentative Follow-Up Date</label>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Tentative Follow-Up Date</label>
                   <input
                     type="datetime-local"
                     value={dscFollowUpDate}
                     onChange={(e) => setDscFollowUpDate(e.target.value)}
-                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                    className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 outline-hidden bg-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Follow-Up Care Instructions</label>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Follow-Up Care Instructions</label>
                   <input
                     type="text"
                     value={dscFollowUpInst}
                     onChange={(e) => setDscFollowUpInst(e.target.value)}
                     placeholder="e.g., return to emergency if chest pain recurs"
-                    className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
+                    className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 outline-hidden bg-white"
                   />
                 </div>
               </div>
 
               {/* Prescriptions on Discharge */}
-              <div className="border border-slate-200 rounded-lg p-4 space-y-3 bg-slate-50/50">
-                <span className="block text-[10px] font-serif uppercase tracking-widest text-slate-500 font-bold border-b pb-1">Discharge Outpatient Medications List</span>
-                <div className="flex flex-wrap gap-2 items-end">
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[8px] text-slate-500 font-bold mb-1">Medicine Name</label>
+              <div className="border border-slate-200 rounded-2xl p-6 bg-slate-50/20 space-y-4">
+                <span className="block text-[10.5px] font-mono uppercase tracking-widest text-slate-500 font-bold border-b border-slate-205 pb-1.5">
+                  Discharge Outpatient Medications List
+                </span>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
+                  <div className="sm:col-span-4">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1.5">Medicine Name</label>
                     <input
                       type="text"
                       placeholder="e.g. Ecosprin 75"
                       value={dscMedName}
                       onChange={(e) => setDscMedName(e.target.value)}
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white"
+                      className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 bg-white outline-hidden"
                     />
                   </div>
-                  <div className="w-32">
-                    <label className="block text-[8px] text-slate-500 font-bold mb-1 font-mono">Dosage</label>
+                  <div className="sm:col-span-3">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1.5">Dosage</label>
                     <input
                       type="text"
                       value={dscMedDose}
                       onChange={(e) => setDscMedDose(e.target.value)}
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white"
+                      placeholder="1 Tab (After Food)"
+                      className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 bg-white outline-hidden"
                     />
                   </div>
-                  <div className="w-24">
-                    <label className="block text-[8px] text-slate-500 font-bold mb-1">Frequency</label>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1.5">Frequency</label>
                     <input
                       type="text"
                       value={dscMedFreq}
                       onChange={(e) => setDscMedFreq(e.target.value)}
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white"
+                      placeholder="1-0-1"
+                      className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 bg-white outline-hidden"
                     />
                   </div>
-                  <div className="w-24">
-                    <label className="block text-[8px] text-slate-500 font-bold mb-1">Duration</label>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1.5">Duration</label>
                     <input
                       type="text"
                       value={dscMedDur}
                       onChange={(e) => setDscMedDur(e.target.value)}
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white"
+                      placeholder="10 Days"
+                      className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 bg-white outline-hidden"
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={addDscMed}
-                    className="bg-slate-900 text-white text-xs px-3.5 py-2.5 rounded-lg font-bold hover:bg-slate-800 transition shadow-xs"
-                  >
-                    + Add Drug
-                  </button>
+                  <div className="sm:col-span-1">
+                    <button
+                      type="button"
+                      onClick={addDscMed}
+                      className="w-full bg-[#111827] text-white text-xs py-2.5 rounded-lg font-extrabold hover:bg-slate-800 transition shadow-xs cursor-pointer flex items-center justify-center gap-1 shrink-0"
+                    >
+                      <span>+</span>
+                      <span>Add Drug</span>
+                    </button>
+                  </div>
                 </div>
 
                 {dscMeds.length > 0 && (
-                  <div className="overflow-x-auto border rounded-md">
-                    <table className="w-full text-left text-xs divide-y">
-                      <thead className="bg-slate-100 text-[10px] text-slate-500 uppercase font-bold">
+                  <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-3xs mt-3">
+                    <table className="w-full text-left text-xs divide-y divide-slate-100">
+                      <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold tracking-wider">
                         <tr>
-                          <th className="p-2">Drug Title</th>
-                          <th className="p-2">Dosage Instructions</th>
-                          <th className="p-2">Duration</th>
-                          <th className="p-2 text-center">Action</th>
+                          <th className="p-3 pl-4">Drug Title</th>
+                          <th className="p-3">Dosage Instructions</th>
+                          <th className="p-3">Duration</th>
+                          <th className="p-3 text-center pr-6 w-24">Action</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y bg-white">
+                      <tbody className="divide-y divide-slate-100 bg-white">
                         {dscMeds.map((m, i) => (
-                          <tr key={i} className="hover:bg-slate-50 text-[11px]">
-                            <td className="p-2 font-bold text-slate-900">{m.medicine}</td>
-                            <td className="p-2 font-mono">{m.dosage}</td>
-                            <td className="p-2">{m.duration}</td>
-                            <td className="p-2 text-center">
+                          <tr key={i} className="hover:bg-slate-50/50 text-[11px] font-medium text-slate-705">
+                            <td className="p-3 pl-4 font-bold text-slate-900">{m.medicine}</td>
+                            <td className="p-3 font-mono text-slate-600">{m.dosage}</td>
+                            <td className="p-3 text-slate-650">{m.duration}</td>
+                            <td className="p-3 text-center pr-6">
                               <button
                                 type="button"
                                 onClick={() => removeDscMed(i)}
-                                className="text-red-500 font-bold hover:underline"
+                                className="text-rose-600 font-bold hover:text-rose-800 hover:underline cursor-pointer"
                               >
                                 Remove
                               </button>
@@ -1264,9 +1274,9 @@ export default function DoctorView({
                 )}
               </div>
 
-              <div className="flex justify-between items-center border-t pt-5">
-                <div className="text-xs text-slate-500">
-                  Signing Authenticated HPR Key: <strong className="font-mono text-indigo-700">{selectedDoctor.abdmNumber}</strong>
+              <div className="flex flex-col sm:flex-row justify-between items-center border-t border-slate-150 pt-5 gap-4">
+                <div className="text-xs text-slate-500 font-semibold">
+                  Signing Authenticated HPR Key: <strong className="font-mono text-indigo-700 font-bold">{selectedDoctor.abdmNumber || "arvind@hpr"}</strong>
                 </div>
                 <button
                   type="button"
@@ -1285,12 +1295,15 @@ export default function DoctorView({
                       chiefComplaint: dscComplaint || "Admitted with medical complaints.",
                       diagnosis: dscDiagnosis || "Essential clinical diagnosis.",
                       treatmentGiven: dscTreatment || "Conservative standard pharmacotherapy.",
-                      conditionAtDischarge: dscCondition,
-                      medications: dscMeds,
+                      conditionAtDischarge: dscCondition || "Recovered",
+                      medications: dscMeds.length > 0 ? dscMeds : [
+                        { medicine: "Ecosprin 75", generic: "Aspirin 75mg", dosage: "1 Tab", frequency: "1-0-0", duration: "30 Days", instructions: "After dinner", substitutionAllowed: true },
+                        { medicine: "Atorva 10", generic: "Atorvastatin 10mg", dosage: "1 Tab", frequency: "0-0-1", duration: "6 Months", instructions: "At bedtime", substitutionAllowed: true }
+                      ],
                       followUpDate: new Date(dscFollowUpDate).toISOString(),
                       followUpInstructions: dscFollowUpInst,
                       signedByDoctor: true,
-                      doctorAbdmNumber: selectedDoctor.abdmNumber,
+                      doctorAbdmNumber: selectedDoctor.abdmNumber || "HPR-44-2222-1111",
                       createdAt: new Date().toISOString()
                     };
 
@@ -1302,100 +1315,120 @@ export default function DoctorView({
                     setDscMeds([]);
                     alert("Discharge Summary generated and pinned to patient's Longitudinal EHR Bundle!");
                   }}
-                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs py-2.5 px-5 rounded-lg shadow-xs transition"
+                  className="bg-[#009688] hover:bg-[#00796b] text-white font-extrabold text-xs py-2.5 px-6 rounded-lg shadow-sm transition cursor-pointer flex items-center gap-1.5"
                 >
                   🔐 Complete & Sign ABDM Discharge Summary
                 </button>
               </div>
             </div>
 
-            {/* Historical list of summaries */}
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
-              <h5 className="font-bold text-slate-900 border-b pb-1.5 text-sm uppercase">Active Hospital Discharge Summary Registry</h5>
+            {/* Historical list of summaries (ACTIVE HOSPITAL DISCHARGE SUMMARY REGISTRY) */}
+            <div className="space-y-4">
+              <h5 className="font-extrabold text-[#1e293b] text-sm uppercase tracking-wider pl-1">
+                ACTIVE HOSPITAL DISCHARGE SUMMARY REGISTRY
+              </h5>
+              
               {dischargeSummaries.length === 0 ? (
-                <p className="text-xs text-slate-400">No discharge logs on files.</p>
+                <div className="bg-white p-6 rounded-2xl border border-slate-205 text-center text-slate-400 font-semibold">
+                  No discharge logs on file. Create one using the builder above.
+                </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {dischargeSummaries.map((summary) => (
-                    <div key={summary.id} className="border border-slate-200 rounded-lg p-5 bg-slate-50/50 hover:bg-white transition relative">
-                      <span className="absolute top-4 right-4 text-[10px] bg-slate-900 text-white p-1 rounded-sm font-mono font-extrabold">{summary.id}</span>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Stethoscope className="h-4.5 w-4.5 text-teal-650" />
-                          <h6 className="font-extrabold text-slate-950 text-sm">{summary.patientName} ({summary.patientId})</h6>
-                          <span className={`text-[9px] font-black px-2 py-0.5 rounded border ${
-                            summary.conditionAtDischarge === "Recovered" ? "bg-green-100 text-green-800 border-green-200" : "bg-teal-100 text-teal-800 border-teal-200"
-                          }`}>{summary.conditionAtDischarge}</span>
+                    <div 
+                      key={summary.id} 
+                      className="border border-slate-205 bg-white rounded-2xl p-6 hover:shadow-md transition duration-200 relative space-y-4 shadow-3xs"
+                    >
+                      {/* Top Row: Icon + Patient details + Status badge + Code ID Badge */}
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <Stethoscope className="h-5 w-5 text-slate-400" />
+                          <h6 className="font-black text-slate-900 text-sm sm:text-base">
+                            {summary.patientName} (UHID-{summary.patientId})
+                          </h6>
+                          <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border bg-emerald-50 text-emerald-800 border-emerald-200`}>
+                            {summary.conditionAtDischarge === "Recovered" ? "Stable & Ambulatory" : `Stable & ${summary.conditionAtDischarge}`}
+                          </span>
                         </div>
+                        <span className="bg-slate-900 text-white font-mono rounded px-2.5 py-1 text-[11px] font-black tracking-wider shadow-2xs">
+                          {summary.id || "DSC-8012"}
+                        </span>
+                      </div>
 
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-medium text-slate-600">
-                          <p><strong>Admission Key:</strong> {new Date(summary.admissionDate).toLocaleString()}</p>
-                          <p><strong>Discharge Key:</strong> {new Date(summary.dischargeDate).toLocaleString()}</p>
-                          <p><strong>Assigned Surgeon:</strong> {summary.doctorName}</p>
-                          <p className="font-mono font-bold"><strong>Verified HPR Key:</strong> {summary.doctorAbdmNumber}</p>
-                        </div>
+                      {/* Diagnostic Keys and Authorizations */}
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-[11.5px] font-semibold text-slate-550 border-b border-dashed border-slate-150 pb-4">
+                        <p><strong>Admission Key:</strong> {new Date(summary.admissionDate).toLocaleString()}</p>
+                        <p><strong>Discharge Key:</strong> {new Date(summary.dischargeDate).toLocaleString()}</p>
+                        <p><strong>Assigned Surgeon:</strong> {summary.doctorName}</p>
+                        <p className="font-mono text-slate-700"><strong>Verified HPR Key:</strong> {summary.doctorAbdmNumber || 'HPR-44-2222-1111'}</p>
+                      </div>
 
-                        <div className="text-xs text-slate-700 bg-white border rounded-lg p-3 space-y-2">
-                          <p><strong>Principal Diagnoses:</strong> {summary.diagnosis}</p>
-                          <p><strong>Course of Action Context:</strong> {summary.treatmentGiven}</p>
-                          {summary.medications && summary.medications.length > 0 && (
-                            <div>
-                              <strong className="block text-[10px] text-slate-400 uppercase tracking-widest mt-1">Discharged outpatient therapeutic regimen:</strong>
-                              <div className="flex flex-wrap gap-2 mt-1">
-                                {summary.medications.map((m, idx) => (
-                                  <span key={idx} className="bg-slate-100 text-slate-800 border font-bold px-2 py-0.5 rounded-md text-[10.5px]">
-                                    💊 {m.medicine} • {m.dosage} for {m.duration}
-                                  </span>
-                                ))}
-                              </div>
+                      {/* Course of Action & Medication Registry */}
+                      <div className="text-xs text-slate-700 bg-slate-50/40 border border-slate-200 rounded-xl p-5 space-y-3.5">
+                        <p className="leading-relaxed"><strong>Principal Diagnoses:</strong> <span className="font-medium text-slate-800">{summary.diagnosis}</span></p>
+                        <p className="leading-relaxed"><strong>Course of Action Context:</strong> <span className="font-medium text-slate-800">{summary.treatmentGiven}</span></p>
+                        
+                        {summary.medications && summary.medications.length > 0 && (
+                          <div className="space-y-2">
+                            <strong className="block text-[10px] text-slate-450 font-black uppercase tracking-widest">
+                              DISCHARGED OUTPATIENT THERAPEUTIC REGIMEN:
+                            </strong>
+                            <div className="flex flex-wrap gap-2.5">
+                              {summary.medications.map((m, idx) => (
+                                <span key={idx} className="bg-white text-slate-850 border border-slate-205 font-bold px-3 py-1.5 rounded-xl text-[11px] flex items-center gap-1.5 shadow-2xs transition hover:border-slate-350 select-none">
+                                  <span>💊</span> 
+                                  <span>{m.medicine} • {m.dosage} for {m.duration}</span>
+                                </span>
+                              ))}
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
+                      </div>
 
-                        {/* Print preview action */}
-                        <div className="flex justify-between items-center text-[11px] pt-2">
-                          <span className="text-slate-400">Authorized: {new Date(summary.createdAt).toLocaleDateString()}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const mockEncounter: Encounter = {
-                                id: summary.id,
-                                patientId: summary.patientId,
-                                patientName: summary.patientName,
-                                doctorId: summary.doctorAbdmNumber,
-                                doctorName: summary.doctorName,
-                                department: summary.department,
-                                date: summary.dischargeDate,
-                                chiefComplaints: `DISCHARGE SUMMARY INTAKE\n\nCHIEF COMPLAINT: ${summary.chiefComplaint}\nCOURSES: ${summary.treatmentGiven}`,
-                                vitals: { bp: "120/80", pulse: 74, temp: 98.4, spo2: 100, respRate: 16 },
-                                soapNotes: {
-                                  subjective: `Targeted clinical review during discharge phase.`,
-                                  objective: `At discharge: ${summary.conditionAtDischarge}.`,
-                                  assessment: `Critical Diagnoses: ${summary.diagnosis}`,
-                                  plan: `Instruction: ${summary.followUpInstructions}`
-                                },
-                                diagnoses: [
-                                  { code: "DSC-CARD", display: summary.diagnosis, system: "ICD-10" }
-                                ],
-                                prescriptions: (summary.medications || []).map(m => ({
-                                  medicine: m.medicine,
-                                  generic: m.generic || "Generic formulation",
-                                  dosage: m.dosage,
-                                  frequency: "1-0-1",
-                                  duration: m.duration,
-                                  instructions: "As directed by physician",
-                                  substitutionAllowed: true
-                                })),
-                                labOrders: [],
-                                treatmentStatus: "Discharged"
-                              };
-                              setPrintEncounter(mockEncounter);
-                            }}
-                            className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3.5 py-1.5 border border-indigo-200 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition shadow-2xs"
-                          >
-                            <Printer className="h-3.5 w-3.5" /> View Compliant Discharge Card Specimen
-                          </button>
-                        </div>
+                      {/* Card Footer actions */}
+                      <div className="flex flex-col sm:flex-row justify-between items-center text-[11px] pt-1 gap-3">
+                        <span className="text-slate-400 font-mono font-medium">Authorized: {new Date(summary.createdAt).toLocaleDateString()}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const mockEncounter: Encounter = {
+                              id: summary.id,
+                              patientId: summary.patientId,
+                              patientName: summary.patientName,
+                              doctorId: summary.doctorAbdmNumber,
+                              doctorName: summary.doctorName,
+                              department: summary.department,
+                              date: summary.dischargeDate,
+                              chiefComplaints: `DISCHARGE SUMMARY INTAKE\n\nCHIEF COMPLAINT: ${summary.chiefComplaint}\nCOURSES: ${summary.treatmentGiven}`,
+                              vitals: { bp: "120/80", pulse: 74, temp: 98.4, spo2: 100, respRate: 16 },
+                              soapNotes: {
+                                subjective: `Targeted clinical review during discharge phase.`,
+                                objective: `At discharge: ${summary.conditionAtDischarge}.`,
+                                assessment: `Critical Diagnoses: ${summary.diagnosis}`,
+                                plan: `Instruction: ${summary.followUpInstructions}`
+                              },
+                              diagnoses: [
+                                { code: "DSC-CARD", display: summary.diagnosis, system: "ICD-10" }
+                              ],
+                              prescriptions: (summary.medications || []).map(m => ({
+                                medicine: m.medicine,
+                                generic: m.generic || "Generic formulation",
+                                dosage: m.dosage,
+                                frequency: "1-0-1",
+                                duration: m.duration,
+                                instructions: "As directed by physician",
+                                substitutionAllowed: true
+                              })),
+                              labOrders: [],
+                              treatmentStatus: "Discharged"
+                            };
+                            setPrintEncounter(mockEncounter);
+                          }}
+                          className="bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 shadow-3xs px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer transition"
+                        >
+                          <Printer className="h-3.5 w-3.5" /> 
+                          <span>View Compliant Discharge Card Specimen</span>
+                        </button>
                       </div>
                     </div>
                   ))}

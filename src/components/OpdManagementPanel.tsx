@@ -683,16 +683,16 @@ export default function OpdManagementPanel({
       {/* MODAL WINDOW: BOOK NEW APPOINTMENT */}
       {showBookModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-[fadeIn_0.15s_ease-out]">
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xl max-w-lg w-full overflow-hidden animate-[zoomIn_0.2s_ease-out]">
+          <div className="bg-white rounded-3xl border border-slate-205 shadow-2xl max-w-lg w-full overflow-hidden animate-[zoomIn_0.2s_ease-out]">
             
             {/* Modal Title Row */}
-            <div className="bg-indigo-900 text-white p-5 flex items-center justify-between">
+            <div className="bg-[#1e1b4b] text-white px-6 py-5 flex items-center justify-between">
               <div>
-                <h3 className="font-extrabold text-base flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-indigo-300" />
+                <h3 className="font-extrabold text-base flex items-center gap-2 tracking-tight">
+                  <Calendar className="h-5 w-5 text-indigo-300 animate-pulse" />
                   <span>Book Outpatient OPD Appointment</span>
                 </h3>
-                <p className="text-[10.5px] text-indigo-200 mt-0.5">Assigned token generated instantly on check-in.</p>
+                <p className="text-[10.5px] text-indigo-200/90 mt-0.5">Assigned token generated instantly on check-in.</p>
               </div>
               <button
                 type="button"
@@ -704,16 +704,18 @@ export default function OpdManagementPanel({
             </div>
 
             {/* Modal Body Form */}
-            <form onSubmit={handleBookSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleBookSubmit} className="p-6 space-y-4 bg-white">
               
               {/* Select Patient */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">Select Registered Patient *</label>
+                <label className="text-[10.5px] font-extrabold text-[#334155] uppercase tracking-wider block mb-1">
+                  Select Registered Patient *
+                </label>
                 <select
                   value={formPatientId}
                   onChange={(e) => handleFormPatientChange(e.target.value)}
                   required
-                  className="w-full bg-white border border-slate-300 px-3 py-2 rounded-xl text-xs text-slate-800 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-150 transition cursor-pointer font-bold"
+                  className="w-full bg-white border border-slate-300 px-3.5 py-2.5 rounded-xl text-xs text-slate-800 focus:outline-hidden focus:border-[#4f46e5] focus:ring-1 focus:ring-indigo-150 transition cursor-pointer font-bold"
                 >
                   <option value="">-- Choose Patient from Registry --</option>
                   {patients.map(p => (
@@ -733,12 +735,14 @@ export default function OpdManagementPanel({
                 
                 {/* Consulting Doctor */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Consulting Doctor *</label>
+                  <label className="text-[10.5px] font-extrabold text-[#334155] uppercase tracking-wider block mb-1">
+                    Consulting Doctor *
+                  </label>
                   <select
                     value={formDoctorName}
                     onChange={(e) => handleDoctorChange(e.target.value)}
                     required
-                    className="w-full bg-slate-50 border border-slate-300 px-3 py-2 rounded-xl text-xs text-slate-800 cursor-pointer font-bold focus:bg-white focus:outline-hidden"
+                    className="w-full bg-white border border-slate-300 px-3.5 py-2.5 rounded-xl text-xs text-slate-800 cursor-pointer font-bold focus:outline-hidden focus:border-[#4f46e5]"
                   >
                     <option value="Dr. Arvind Swaminathan">Dr. Arvind Swaminathan</option>
                     <option value="Dr. Shruti Aggarwal">Dr. Shruti Aggarwal</option>
@@ -747,12 +751,14 @@ export default function OpdManagementPanel({
 
                 {/* Department (read-only bound to Doctor) */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-750 block">Assigned Specialty</label>
+                  <label className="text-[10.5px] font-extrabold text-[#334155] uppercase tracking-wider block mb-1">
+                    Assigned Specialty
+                  </label>
                   <input
                     type="text"
                     value={formDepartment}
                     disabled
-                    className="w-full bg-slate-100 border border-slate-300 px-3 py-2 rounded-xl text-xs font-bold text-slate-550 focus:outline-hidden"
+                    className="w-full bg-[#f1f5f9] text-[#475569] border border-[#cbd5e1] px-3.5 py-2.5 rounded-xl text-xs font-bold focus:outline-hidden"
                   />
                 </div>
 
@@ -762,24 +768,28 @@ export default function OpdManagementPanel({
                 
                 {/* Date and Time */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Datetime Slot *</label>
+                  <label className="text-[10.5px] font-extrabold text-[#334155] uppercase tracking-wider block mb-1">
+                    Datetime Slot *
+                  </label>
                   <input
                     type="datetime-local"
                     value={formDateTime}
                     onChange={(e) => setFormDateTime(e.target.value)}
                     required
-                    className="w-full bg-white border border-slate-300 px-3 py-2 rounded-xl text-xs text-slate-800 focus:outline-hidden font-bold"
+                    className="w-full bg-white border border-[#cbd5e1] px-3.5 py-2.5 rounded-xl text-xs text-slate-800 focus:outline-hidden font-bold"
                   />
                 </div>
 
                 {/* Consult Category type */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Encounter Mode *</label>
+                  <label className="text-[10.5px] font-extrabold text-[#334155] uppercase tracking-wider block mb-1">
+                    Encounter Mode *
+                  </label>
                   <select
                     value={formConsultType}
                     onChange={(e) => setFormConsultType(e.target.value as any)}
                     required
-                    className="w-full bg-white border border-slate-300 px-3 py-2 rounded-xl text-xs text-slate-800 cursor-pointer font-bold focus:outline-hidden"
+                    className="w-full bg-white border border-[#cbd5e1] px-3.5 py-2.5 rounded-xl text-xs text-slate-800 cursor-pointer font-bold focus:outline-hidden"
                   >
                     <option value="OPD">Standard OPD (Check-in now)</option>
                     <option value="Tele-Consultation">Tele-Consultation</option>
@@ -793,12 +803,14 @@ export default function OpdManagementPanel({
                 
                 {/* Urgency */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Triage / Urgency *</label>
+                  <label className="text-[10.5px] font-extrabold text-[#334155] uppercase tracking-wider block mb-1">
+                    Triage / Urgency *
+                  </label>
                   <select
                     value={formUrgency}
                     onChange={(e) => setFormUrgency(e.target.value as any)}
                     required
-                    className="w-full bg-white border border-slate-300 px-4 py-2 rounded-xl text-xs text-slate-800 cursor-pointer font-bold focus:outline-hidden"
+                    className="w-full bg-white border border-[#cbd5e1] px-3.5 py-2.5 rounded-xl text-xs text-slate-800 cursor-pointer font-bold focus:outline-hidden"
                   >
                     <option value="Normal">Normal</option>
                     <option value="Urgent">Urgent</option>
@@ -808,11 +820,13 @@ export default function OpdManagementPanel({
 
                 {/* Payment status */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Default Billing Protocol</label>
+                  <label className="text-[10.5px] font-extrabold text-[#334155] uppercase tracking-wider block mb-1">
+                    Default Billing Protocol
+                  </label>
                   <select
                     value={formPaymentStatus}
                     onChange={(e) => setFormPaymentStatus(e.target.value as any)}
-                    className="w-full bg-slate-50 border border-slate-300 px-3 py-2 rounded-xl text-xs text-slate-850 cursor-pointer font-extrabold focus:outline-hidden focus:bg-white"
+                    className="w-full bg-white border border-[#cbd5e1] px-3.5 py-2.5 rounded-xl text-xs text-slate-850 cursor-pointer font-extrabold focus:outline-hidden"
                   >
                     <option value="Paid">Paid (Cash/UPI) - OPD Fee ₹400</option>
                     <option value="Unpaid">Unpaid / Collect Later</option>
@@ -842,14 +856,14 @@ export default function OpdManagementPanel({
                 <button
                   type="button"
                   onClick={() => setShowBookModal(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-505 border border-slate-250 bg-white shadow-2xs text-slate-700 hover:text-slate-900 rounded-lg transition"
+                  className="px-4 py-2.5 text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:text-slate-900 rounded-xl transition cursor-pointer"
                 >
                   Close
                 </button>
                 <button
                   type="submit"
                   disabled={patients.length === 0}
-                  className="px-5 py-2 text-xs font-extrabold text-white bg-indigo-750 hover:bg-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition cursor-pointer shadow-sm shadow-indigo-150"
+                  className="px-5 py-2.5 text-xs font-black text-white bg-[#4f46e5] hover:bg-[#4338ca] disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition cursor-pointer shadow-sm shadow-indigo-150"
                 >
                   Generate Ticket (Check-In)
                 </button>
